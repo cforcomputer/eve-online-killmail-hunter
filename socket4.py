@@ -46,7 +46,8 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
         killmail_time = datetime.strptime(killmail_data["killmail_time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         time_difference = calculate_time_difference(killmail_time)
 
-        # Check if the time difference is greater than 10 minutes
+        # @todo 
+        # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
         if calculate_filter_difference(killmail_time) > 1200 or dropped_value < 100000000: # 600 seconds = 10 minutes
             print("Filtered out:" + killmail_data["killmail_time"] + " " + time_difference + " Dropped value: " + str(dropped_value)) # debug
             return  # Skip processing and displaying the killmail
@@ -116,6 +117,12 @@ async def run_tkinter_loop(root, text_widget, time_label):
         if "application has been destroyed" not in str(e):
             raise
 
+def clear_text_and_labels(text_widget):
+    text_widget.delete(1.0, tk.END)
+    # Destroy all child widgets (labels) in the text widget
+    for widget in text_widget.winfo_children():
+        widget.destroy()
+
 async def start_gui():
     root = tk.Tk()
     root.title("NPC Hunter Live XTREME V1")
@@ -123,8 +130,9 @@ async def start_gui():
     text_widget = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=20)
     text_widget.pack(padx=10, pady=10)
 
-    clear_button = tk.Button(root, text="Clear Text", command=lambda: text_widget.delete(1.0, tk.END))
+    clear_button = tk.Button(root, text="Clear kills", command=lambda: clear_text_and_labels(text_widget))
     clear_button.pack(pady=5)
+    
 
     counter_var = tk.IntVar()
     counter_label = tk.Label(root, text="Kills Processed: ")
