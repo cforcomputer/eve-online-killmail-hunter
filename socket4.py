@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import scrolledtext
 import websockets
 import webbrowser
+import simpleaudio
 import sys
 from datetime import datetime, timezone, timedelta
 
@@ -46,9 +47,14 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
         time_difference = calculate_time_difference(killmail_time)
 
         # Check if the time difference is greater than 10 minutes
-        if calculate_filter_difference(killmail_time) > 600: # 600 seconds = 10 minutes
-            print("Filtered out:" + killmail_data["killmail_time"] + " " + time_difference) # debug
+        if calculate_filter_difference(killmail_time) > 1200 or dropped_value < 100000000: # 600 seconds = 10 minutes
+            print("Filtered out:" + killmail_data["killmail_time"] + " " + time_difference + " Dropped value: " + str(dropped_value)) # debug
             return  # Skip processing and displaying the killmail
+        play_audio_alert()    
+        # Check if the dropped value is over 300 million
+        # if dropped_value > 300000000:
+        #     # Play an audio alert
+        #     play_audio_alert()
 
         # Create a label to display all details including clickable link and time difference
         kill_details = f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
@@ -56,6 +62,16 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
         link_label.pack(anchor="w")
         link_label.bind("<Button-1>", lambda event, url=killmail_data["zkb"]["url"]: open_url(url))
         text_widget.insert(tk.END, "\n")
+
+def play_audio_alert():
+    # Replace 'path/to/audio/alert.wav' with the path to your audio file
+    audio_path = 'alert.wav'
+    try:
+        wave_obj = simpleaudio.WaveObject.from_wave_file(audio_path)
+        play_obj = wave_obj.play()
+        play_obj.wait_done()
+    except Exception as e:
+        print(f"Error playing audio alert: {e}")
 
 def calculate_filter_difference(killmail_time):
     current_time = datetime.now(timezone.utc)
