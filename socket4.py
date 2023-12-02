@@ -92,8 +92,8 @@ def check_number_combination(raw_response):
 
     # Check if any combination of numbers is present in the raw response
     for combination in number_combinations_to_check:
-        i+=1
-        print(i) # debug
+        # i+=1
+        # print(i) # debug
         if re.search('"item_type_id": ' + combination + ",", str(raw_response)):
             return True
 
