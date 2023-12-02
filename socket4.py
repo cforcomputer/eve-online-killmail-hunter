@@ -68,6 +68,7 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
 
         if check_number_combination(killmail_data):
             # Item contains a blueprint or special item
+            label_color = "blue"
             play_blue_alert()
         else:
             # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
