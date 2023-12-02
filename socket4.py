@@ -1,12 +1,12 @@
 import asyncio
 import json
+from datetime import datetime, timezone, timedelta
 import tkinter as tk
 from tkinter import scrolledtext
 import websockets
 import webbrowser
 import simpleaudio
 import sys
-from datetime import datetime, timezone, timedelta
 
 async def subscribe_to_killstream(websocket, text_widget, counter_var, time_label):
     payload = {
@@ -46,22 +46,16 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
         killmail_time = datetime.strptime(killmail_data["killmail_time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         time_difference = calculate_time_difference(killmail_time)
 
-        # @todo 
         # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
-        if calculate_filter_difference(killmail_time) > 1200 or dropped_value < 100000000: # 600 seconds = 10 minutes
-            print("Filtered out:" + killmail_data["killmail_time"] + " " + time_difference + " Dropped value: " + str(dropped_value)) # debug
+        if calculate_filter_difference(killmail_time) > 1200 or dropped_value < 100_000_000:
+            print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
             return  # Skip processing and displaying the killmail
-        play_audio_alert()    
-        # Check if the dropped value is over 300 million
-        # if dropped_value > 300000000:
-        #     # Play an audio alert
-        #     play_audio_alert()
+
+        play_audio_alert()
 
         # Create a label to display all details including clickable link and time difference
         kill_details = f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
-        link_label = tk.Label(text_widget, text=kill_details, fg="blue", cursor="hand2", wraplength=500, justify="left")
-        link_label.pack(anchor="w")
-        link_label.bind("<Button-1>", lambda event, url=killmail_data["zkb"]["url"]: open_url(url))
+        link_label = create_link_label(text_widget, kill_details, killmail_data["zkb"]["url"])
         text_widget.insert(tk.END, "\n")
 
 def play_audio_alert():
@@ -90,19 +84,25 @@ def calculate_time_difference(killmail_time):
     elif seconds < 3600:
         minutes = seconds // 60
         return f"{minutes} minutes ago"
-    elif seconds < 86400:
+    elif seconds < 86_400:
         hours = seconds // 3600
         return f"{hours} hours ago"
     else:
-        days = seconds // 86400
+        days = seconds // 86_400
         return f"{days} days ago"
 
 def format_dropped_value(value):
     magnitude = 0
-    while abs(value) >= 1000:
+    while abs(value) >= 1_000:
         magnitude += 1
-        value /= 1000.0
+        value /= 1_000.0
     return '{:.2f}{}'.format(value, ['', 'K', 'M', 'B', 'T'][magnitude])
+
+def create_link_label(text_widget, text, url):
+    link_label = tk.Label(text_widget, text=text, fg="blue", cursor="hand2", wraplength=500, justify="left")
+    link_label.pack(anchor="w")
+    link_label.bind("<Button-1>", lambda event, url=url: open_url(url))
+    return link_label
 
 async def connect_websocket(uri, text_widget, counter_var, time_label):
     async with websockets.connect(uri) as websocket:
@@ -112,7 +112,9 @@ async def run_tkinter_loop(root, text_widget, time_label):
     try:
         while True:
             root.update()
-            await asyncio.sleep(0.1)
+            current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            time_label.config(text=f"EVE Time: {current_utc_time}")
+            await asyncio.sleep(1)
     except tk.TclError as e:
         if "application has been destroyed" not in str(e):
             raise
@@ -132,7 +134,6 @@ async def start_gui():
 
     clear_button = tk.Button(root, text="Clear kills", command=lambda: clear_text_and_labels(text_widget))
     clear_button.pack(pady=5)
-    
 
     counter_var = tk.IntVar()
     counter_label = tk.Label(root, text="Kills Processed: ")
