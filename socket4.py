@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import tkinter as tk
 from tkinter import scrolledtext
 import websockets
@@ -9,7 +9,9 @@ import simpleaudio
 import sys
 import re
 
-async def subscribe_to_killstream(websocket, text_widget, counter_var, time_label):
+LABEL_LIST = []
+
+async def subscribe_to_killstream(websocket, text_widget, counter_var, time_label, dt_label):
     payload = {
         "action": "sub",
         "channel": "killstream"
@@ -25,7 +27,7 @@ async def subscribe_to_killstream(websocket, text_widget, counter_var, time_labe
         try:
             response = await websocket.recv()
             response_data = json.loads(response)
-            await process_killmail(response_data, text_widget, counter_var, time_label)
+            await process_killmail(response_data, text_widget, counter_var, time_label, dt_label)
             counter += 1
             counter_var.set(counter)
         except websockets.ConnectionClosed:
@@ -35,7 +37,7 @@ async def subscribe_to_killstream(websocket, text_widget, counter_var, time_labe
 def open_url(url):
     webbrowser.open(url)
 
-async def process_killmail(killmail_data, text_widget, counter_var, time_label):
+async def process_killmail(killmail_data, text_widget, counter_var, time_label, dt_label):
     # Check if the killmail has a dropped value
     if "zkb" in killmail_data and "npc" in killmail_data["zkb"] and killmail_data["zkb"]["npc"]:
         dropped_value = killmail_data["zkb"]["droppedValue"]
@@ -52,10 +54,10 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
         officers_list = [13557, 13654, 13564, 13544, 13573, 13589, 13603, 52475, 13667,
             13584, 13635, 13659, 13615, 13661, 13609, 13538, 13536, 13580, 13622, 13561, 13541]
         
-        pass_condition = False
-        label_color = "green"
+        label_color = "#dbdbdb"
+        text_color = "black"
 
-        if calculate_filter_difference(killmail_time) > 1200:
+        if calculate_filter_difference(killmail_time) > 120000:
             print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
             return  # Skip processing and displaying the killmail
         
@@ -69,20 +71,21 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label):
         if check_number_combination(killmail_data):
             # Item contains a blueprint or special item
             label_color = "blue"
+            text_color = "white"
             play_blue_alert()
         else:
             # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
             # Only perform the check if the item does not contain blueprints, abyssals, and is not an officer/commander
-            if dropped_value < 200000000:
+            if dropped_value < 100:
                 print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
                 return
-            
             # Play the default audio alert
             play_audio_alert()
 
+        await asyncio.sleep(0.6) # 
         # Create a label to display all details including clickable link and time difference
         kill_details = f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
-        link_label = create_link_label(text_widget, kill_details, killmail_data["zkb"]["url"], color=label_color)
+        create_link_label(text_widget, kill_details, killmail_data["zkb"]["url"], color=text_color, bgcolor=label_color)
         text_widget.insert(tk.END, "\n")
 
 def check_number_combination(raw_response):
@@ -99,7 +102,6 @@ def check_number_combination(raw_response):
             return True
 
     return False
-
 
 def play_audio_alert():
     # Replace 'path/to/audio/alert.wav' with the path to your audio file
@@ -139,6 +141,21 @@ def calculate_filter_difference(killmail_time):
     seconds = int(time_difference.total_seconds())
     return seconds
 
+def get_time_until_downtime():
+    # Get current UTC time
+    current_utc_time = datetime.now(timezone.utc)
+
+    # Define the target time as 11:00 UTC
+    target_time = current_utc_time.replace(hour=11, minute=0, second=0)
+
+    # Calculate the time difference
+    time_difference = target_time - current_utc_time
+
+    # Format the time difference as a string without the day part
+    remaining_time_str = str(time_difference)
+
+    return remaining_time_str.replace("-1 day,", "")
+
 def calculate_time_difference(killmail_time):
     current_time = datetime.now(timezone.utc)
     time_difference = current_time - killmail_time
@@ -163,22 +180,26 @@ def format_dropped_value(value):
         value /= 1_000.0
     return '{:.2f}{}'.format(value, ['', 'K', 'M', 'B', 'T'][magnitude])
 
-def create_link_label(text_widget, text, url, color):
-    link_label = tk.Label(text_widget, text=text, fg=color, cursor="hand2", wraplength=500, justify="left")
+# Make the new label element for each new kill
+def create_link_label(text_widget, text, url, color, bgcolor):
+    link_label = tk.Label(text_widget, text=text, fg=color, bg=bgcolor, cursor="hand2", wraplength=500, justify="left", borderwidth=3, relief="raised")
     link_label.pack(anchor="w")
     link_label.bind("<Button-1>", lambda event, url=url: open_url(url))
+    LABEL_LIST.append(link_label)
     return link_label
 
-async def connect_websocket(uri, text_widget, counter_var, time_label):
+async def connect_websocket(uri, text_widget, counter_var, time_label, dt_label):
     async with websockets.connect(uri) as websocket:
-        await subscribe_to_killstream(websocket, text_widget, counter_var, time_label)
+        await subscribe_to_killstream(websocket, text_widget, counter_var, time_label, dt_label)
 
-async def run_tkinter_loop(root, text_widget, time_label):
+async def run_tkinter_loop(root, text_widget, time_label, dt_label):
     try:
         while True:
             root.update()
             current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            time_until_downtime = get_time_until_downtime()
             time_label.config(text=f"EVE Time: {current_utc_time}")
+            dt_label.config(text=f"DT in: {time_until_downtime}")
             await asyncio.sleep(0.1)
     except tk.TclError as e:
         if "application has been destroyed" not in str(e):
@@ -187,11 +208,14 @@ async def run_tkinter_loop(root, text_widget, time_label):
 def clear_text_and_labels(text_widget):
     text_widget.delete(1.0, tk.END)
     # Destroy all child widgets (labels) in the text widget
+
+    LABEL_LIST.clear()
     for widget in text_widget.winfo_children():
         widget.destroy()
 
 async def start_gui():
     root = tk.Tk()
+    root.minsize(100,600)
     root.title("NPC Hunter Live XTREME V1")
 
     text_widget = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=20)
@@ -200,21 +224,32 @@ async def start_gui():
     clear_button = tk.Button(root, text="Clear kills", command=lambda: clear_text_and_labels(text_widget))
     clear_button.pack(pady=5)
 
+    # Frame for Kills Processed and EVE Time
+    info_frame = tk.Frame(root, relief=tk.RAISED, borderwidth=1)
+    info_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+
+    # DT Info frame
+    dt_frame = tk.Frame(root, relief=tk.RAISED, borderwidth=1)
+    dt_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+
     counter_var = tk.IntVar()
-    counter_label = tk.Label(root, text="Kills Processed: ")
+    counter_label = tk.Label(info_frame, text="Kills Processed: ")
     counter_label.pack(side=tk.LEFT, padx=5)
-    counter_box = tk.Label(root, textvariable=counter_var)
+    counter_box = tk.Label(info_frame, textvariable=counter_var)
     counter_box.pack(side=tk.LEFT, padx=5)
 
-    time_label = tk.Label(root, text="EVE Time: ")
-    time_label.pack(anchor="w")
+    dt_label = tk.Label(dt_frame, text="DT In: ")
+    dt_label.pack(side=tk.BOTTOM)
+
+    time_label = tk.Label(info_frame, text="EVE Time: ")
+    time_label.pack(side=tk.BOTTOM)
 
     root.protocol("WM_DELETE_WINDOW", lambda: close_window(root))  # Handle window close event
 
     uri = "wss://zkillboard.com/websocket/"
 
     try:
-        await asyncio.gather(connect_websocket(uri, text_widget, counter_var, time_label), run_tkinter_loop(root, text_widget, time_label))
+        await asyncio.gather(connect_websocket(uri, text_widget, counter_var, time_label, dt_label), run_tkinter_loop(root, text_widget, time_label, dt_label))
     except tk.TclError as e:
         if "application has been destroyed" not in str(e):
             raise
