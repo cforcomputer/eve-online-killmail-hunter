@@ -9,7 +9,14 @@ import simpleaudio
 import sys
 import re
 
-LABEL_LIST = []
+# Default settings
+DEFAULT_SETTINGS = {
+    "officers": True,
+    "abyssal_mods": False,
+    "blueprints": False,
+    "time_threshold": 1200,
+    "dropped_value": 100000000
+}
 
 async def subscribe_to_killstream(websocket, text_widget, counter_var, time_label, dt_label):
     payload = {
@@ -23,11 +30,13 @@ async def subscribe_to_killstream(websocket, text_widget, counter_var, time_labe
     counter = 0
     counter_var.set(counter)
 
+    settings = load_settings()
+
     while True:
         try:
             response = await websocket.recv()
             response_data = json.loads(response)
-            await process_killmail(response_data, text_widget, counter_var, time_label, dt_label)
+            await process_killmail(response_data, text_widget, counter_var, time_label, dt_label, settings)
             counter += 1
             counter_var.set(counter)
         except websockets.ConnectionClosed:
@@ -37,8 +46,15 @@ async def subscribe_to_killstream(websocket, text_widget, counter_var, time_labe
 def open_url(url):
     webbrowser.open(url)
 
-async def process_killmail(killmail_data, text_widget, counter_var, time_label, dt_label):
+async def process_killmail(killmail_data, text_widget, counter_var, time_label, dt_label, settings):
     # Check if the killmail has a dropped value
+    officers = settings["officers"]
+    abyssal_mods = settings["abyssal_mods"]
+    blueprints = settings["blueprints"]
+    max_time_threshold = settings["time_threshold"]
+    max_dropped_value = settings["dropped_value"]
+
+
     if "zkb" in killmail_data and "npc" in killmail_data["zkb"] and killmail_data["zkb"]["npc"]:
         dropped_value = killmail_data["zkb"]["droppedValue"]
 
@@ -50,25 +66,26 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label, 
         time_difference = calculate_time_difference(killmail_time)
 
         # Get list of dropped items, see if it contains blueprint or abyssal item
-
-        officers_list = [13557, 13654, 13564, 13544, 13573, 13589, 13603, 52475, 13667,
-            13584, 13635, 13659, 13615, 13661, 13609, 13538, 13536, 13580, 13622, 13561, 13541]
         
         label_color = "#dbdbdb"
         text_color = "black"
 
-        if calculate_filter_difference(killmail_time) > 120000:
+        if calculate_filter_difference(killmail_time) > max_time_threshold:
             print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
             return  # Skip processing and displaying the killmail
         
-        for officer in officers_list:
-            if str(officer) in killmail_data:
-                # Set label color to orange for officer/belt officer
-                label_color = "orange"
-                # Play a different audio alert
-                play_orange_alert()
+        if officers:
+            officers_list = [13557, 13654, 13564, 13544, 13573, 13589, 13603, 52475, 13667,
+                13584, 13635, 13659, 13615, 13661, 13609, 13538, 13536, 13580, 13622, 13561, 13541]
+            
+            for officer in officers_list:
+                if str(officer) in killmail_data:
+                    # Set label color to orange for officer/belt officer
+                    label_color = "orange"
+                    # Play a different audio alert
+                    play_orange_alert()
 
-        if check_number_combination(killmail_data):
+        if check_number_combination(killmail_data, blueprints, abyssal_mods):
             # Item contains a blueprint or special item
             label_color = "blue"
             text_color = "white"
@@ -76,7 +93,7 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label, 
         else:
             # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
             # Only perform the check if the item does not contain blueprints, abyssals, and is not an officer/commander
-            if dropped_value < 100:
+            if dropped_value < max_dropped_value:
                 print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
                 return
             # Play the default audio alert
@@ -88,18 +105,28 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label, 
         create_link_label(text_widget, kill_details, killmail_data["zkb"]["url"], color=text_color, bgcolor=label_color)
         text_widget.insert(tk.END, "\n")
 
-def check_number_combination(raw_response):
-    i = 0
+def check_number_combination(raw_response, blueprints, abyssal_mods):
+    response = str(raw_response)
+    # i = 0
     # Load a list of numbers from a text file
-    with open("blueprints.txt", "r") as file:
-        number_combinations_to_check = [line.strip() for line in file.readlines()]
+    if blueprints:
+        with open("blueprints.txt", "r") as file:
+            number_combinations_to_check = [line.strip() for line in file.readlines()]
+        
+        # Check if any combination of numbers is present in the raw response
+        for combination in number_combinations_to_check:
+            # i+=1
+            # print(i) # debug
+            if re.search('"item_type_id": ' + combination + ",", response):
+                return True
+    if abyssal_mods:
+        with open("abyssals.txt", "r") as file:
+            abyssal_ids = [line.strip() for line in file.readlines()]
 
-    # Check if any combination of numbers is present in the raw response
-    for combination in number_combinations_to_check:
-        # i+=1
-        # print(i) # debug
-        if re.search('"item_type_id": ' + combination + ",", str(raw_response)):
-            return True
+        # Check if the killmail has abyssal mods
+        for id in abyssal_ids:
+            if re.search('"item_type_id": ' + id + ",", response):
+                return True
 
     return False
 
@@ -185,7 +212,6 @@ def create_link_label(text_widget, text, url, color, bgcolor):
     link_label = tk.Label(text_widget, text=text, fg=color, bg=bgcolor, cursor="hand2", wraplength=500, justify="left", borderwidth=3, relief="raised")
     link_label.pack(anchor="w")
     link_label.bind("<Button-1>", lambda event, url=url: open_url(url))
-    LABEL_LIST.append(link_label)
     return link_label
 
 async def connect_websocket(uri, text_widget, counter_var, time_label, dt_label):
@@ -208,12 +234,11 @@ async def run_tkinter_loop(root, text_widget, time_label, dt_label):
 def clear_text_and_labels(text_widget):
     text_widget.delete(1.0, tk.END)
     # Destroy all child widgets (labels) in the text widget
-
-    LABEL_LIST.clear()
     for widget in text_widget.winfo_children():
         widget.destroy()
 
 async def start_gui():
+
     root = tk.Tk()
     root.minsize(100,600)
     root.title("NPC Hunter Live XTREME V1")
@@ -253,6 +278,19 @@ async def start_gui():
     except tk.TclError as e:
         if "application has been destroyed" not in str(e):
             raise
+
+def load_settings():
+    try:
+        with open("settings.json", "r") as file:
+            settings = json.load(file)
+    except FileNotFoundError:
+        settings = DEFAULT_SETTINGS
+
+    return settings
+
+def save_settings(settings):
+    with open("settings.json", "w") as file:
+        json.dump(settings, file)
 
 def close_window(root):
     root.destroy()
