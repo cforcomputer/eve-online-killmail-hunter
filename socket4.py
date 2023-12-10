@@ -15,7 +15,7 @@ DEFAULT_SETTINGS = {
     "abyssal_mods": False,
     "blueprints": False,
     "time_threshold": 1200,
-    "dropped_value": 100000000
+    "dropped_value": 100000000,
 }
 
 async def subscribe_to_killstream(websocket, text_widget, counter_var, time_label, dt_label):
@@ -49,6 +49,7 @@ def open_url(url):
 async def process_killmail(killmail_data, text_widget, counter_var, time_label, dt_label, settings):
     # Check if the killmail has a dropped value
     officers = settings["officers"]
+    belt_hunter_mode = settings["belt_hunter_mode"]
     abyssal_mods = settings["abyssal_mods"]
     blueprints = settings["blueprints"]
     max_time_threshold = settings["time_threshold"]
@@ -73,7 +74,14 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label, 
         if calculate_filter_difference(killmail_time) > max_time_threshold:
             print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
             return  # Skip processing and displaying the killmail
-        
+            
+        if belt_hunter_mode:
+            belter_list = [33174, 13602, 13601] # @TODO add more belt rats/valuable npcs
+            for belter in belter_list:
+                if str(belter) in belter_list:
+                    label_color = "orange"
+
+
         if officers:
             officers_list = [13557, 13654, 13564, 13544, 13573, 13589, 13603, 52475, 13667,
                 13584, 13635, 13659, 13615, 13661, 13609, 13538, 13536, 13580, 13622, 13561, 13541]
@@ -81,11 +89,11 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label, 
             for officer in officers_list:
                 if str(officer) in killmail_data:
                     # Set label color to orange for officer/belt officer
-                    label_color = "orange"
+                    label_color = "purple"
                     # Play a different audio alert
-                    play_orange_alert()
+                    play_purple_alert()
 
-        if check_number_combination(killmail_data, blueprints, abyssal_mods):
+        if check_number_combination(killmail_data, blueprints, abyssal_mods) and belt_hunter_mode == False:
             # Item contains a blueprint or special item
             label_color = "blue"
             text_color = "white"
@@ -93,7 +101,7 @@ async def process_killmail(killmail_data, text_widget, counter_var, time_label, 
         else:
             # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
             # Only perform the check if the item does not contain blueprints, abyssals, and is not an officer/commander
-            if dropped_value < max_dropped_value:
+            if dropped_value < max_dropped_value and belt_hunter_mode == False:
                 print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}")  # debug
                 return
             # Play the default audio alert
@@ -141,15 +149,14 @@ def play_audio_alert():
         print(f"Error playing audio alert: {e}")
 
 # For officer wrecks
-def play_orange_alert():
-    # Replace 'path/to/audio/orange_alert.wav' with the path to your orange audio file
-    orange_audio_path = 'orange_alert.wav'
+def play_purple_alert():
+    purple_audio_path = 'purple_alert.wav'
     try:
-        wave_obj = simpleaudio.WaveObject.from_wave_file(orange_audio_path)
+        wave_obj = simpleaudio.WaveObject.from_wave_file(purple_audio_path)
         play_obj = wave_obj.play()
         play_obj.wait_done()
     except Exception as e:
-        print(f"Error playing orange audio alert: {e}")
+        print(f"Error playing purple audio alert: {e}")
 
 # For blueprints or special items
 def play_blue_alert():

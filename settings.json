@@ -1,5 +1,7 @@
 {
+    "belt_hunter_mode": true,
     "officers": true,
+    "mordus_special_operations": true,
     "abyssal_mods": true, 
     "blueprints": true, 
     "time_threshold": 120000, 
