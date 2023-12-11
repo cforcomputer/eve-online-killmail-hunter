@@ -1,4 +1,4 @@
-# NPC loot hunter for EVE Online
+# Killmail hunter for EVE Online
 
 ## Releases
 

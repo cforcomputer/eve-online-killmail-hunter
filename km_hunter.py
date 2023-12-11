@@ -129,8 +129,13 @@ async def process_killmail(
                 13602,
                 13601,
             ]  # @TODO add more belt rats/valuable npcs
+            mordus_list = [33866, 33864, 33865]
+            for mordu in mordus_list:
+                if str(mordu) in killmail_data:
+                    label_color = "orange"
+
             for belter in belter_list:
-                if str(belter) in belter_list:
+                if str(belter) in killmail_data:
                     label_color = "orange"
                     # Otherwise, if not an officer, we are not interested in the kill.
                 elif not o:
