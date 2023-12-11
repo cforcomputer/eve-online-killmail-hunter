@@ -15,6 +15,8 @@ DEFAULT_SETTINGS = {
     "officers": True,
     "abyssal_mods": False,
     "blueprints": False,
+    "dropped_value_enabled": False,
+    "time_threshold_enabled": True,
     "time_threshold": 1200,
     "dropped_value": 100000000,
 }
@@ -61,6 +63,8 @@ async def process_killmail(
     blueprints = settings["blueprints"]
     max_time_threshold = settings["time_threshold"]
     max_dropped_value = settings["dropped_value"]
+    time_threshold_enabled = settings["time_threshold_enabled"]
+    dropped_value_enabled = settings["dropped_value_enabled"]
 
     if (
         "zkb" in killmail_data
@@ -83,7 +87,10 @@ async def process_killmail(
         label_color = "#dbdbdb"
         text_color = "black"
 
-        if calculate_filter_difference(killmail_time) > max_time_threshold:
+        if (
+            calculate_filter_difference(killmail_time) > max_time_threshold
+            and time_threshold_enabled == True
+        ):
             print(
                 f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}"
             )  # debug
@@ -125,9 +132,62 @@ async def process_killmail(
 
         if belt_hunter_mode:
             belter_list = [
-                33174,
+                33174,  # start guristas
                 13602,
                 13601,
+                23356,
+                23355,
+                13578,
+                13579,
+                13588,
+                23357,
+                13583,
+                23358,  # end guristas
+                23469,  # start shadow serpentis
+                13660,
+                13658,
+                13666,
+                23471,
+                23470,
+                23472,
+                13665,
+                13653,
+                33164,
+                13652,  # end serpentis
+                13562,  # start blood
+                13560,
+                13572,
+                23300,
+                13563,
+                23299,
+                13559,
+                23301,
+                23302,
+                13556,
+                33172,  # end blood
+                22873,  # start angel
+                13535,
+                13537,
+                22871,
+                13542,
+                13540,
+                22874,
+                22872,
+                13539,
+                33173,
+                13543,  # end angel
+                33163,  # start sansha
+                13633,
+                23401,
+                23402,
+                13606,
+                13620,
+                23400,
+                13621,
+                13634,
+                13614,
+                23403,
+                33163,  # end sanshas
             ]  # @TODO add more belt rats/valuable npcs
             mordus_list = [33866, 33864, 33865]
             for mordu in mordus_list:
@@ -152,7 +212,7 @@ async def process_killmail(
         else:
             # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
             # Only perform the check if the item does not contain blueprints, abyssals, and is not an officer/commander
-            if dropped_value < max_dropped_value and belt_hunter_mode == False:
+            if dropped_value < max_dropped_value and dropped_value_enabled == True:
                 print(
                     f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}"
                 )  # debug

@@ -2,8 +2,10 @@
     "belt_hunter_mode": true,
     "officers": true,
     "abyssal_mods": true, 
-    "blueprints": true, 
-    "time_threshold": 120000, 
+    "blueprints": true,
+    "time_threshold_enabled": true, 
+    "time_threshold": 12000, 
+    "dropped_value_enabled": false,
     "dropped_value": 100 
 }
   
