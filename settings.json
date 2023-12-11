@@ -1,11 +1,16 @@
 {
-    "belt_hunter_mode": true,
+    "belt_hunter_mode": false,
     "officers": true,
     "abyssal_mods": true, 
     "blueprints": true,
     "time_threshold_enabled": true, 
-    "time_threshold": 12000, 
+    "time_threshold": 12000000, 
     "dropped_value_enabled": false,
-    "dropped_value": 100 
+    "dropped_value": 100,
+    "email_host": "smtp.gmail.com",
+    "port": 587,
+    "email_username": "",
+    "email_password": "",
+    "gmail": true
 }
   

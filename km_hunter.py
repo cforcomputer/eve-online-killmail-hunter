@@ -8,6 +8,8 @@ import webbrowser
 import simpleaudio
 import sys
 import re
+from redmail import EmailSender
+from redmail import gmail
 
 # Default settings
 DEFAULT_SETTINGS = {
@@ -33,14 +35,18 @@ async def subscribe_to_killstream(
     counter = 0
     counter_var.set(counter)
 
-    settings = load_settings()
-
     while True:
         try:
             response = await websocket.recv()
+            settings = load_settings()
             response_data = json.loads(response)
             await process_killmail(
-                response_data, text_widget, counter_var, time_label, dt_label, settings
+                response_data,
+                text_widget,
+                counter_var,
+                time_label,
+                dt_label,
+                settings,
             )
             counter += 1
             counter_var.set(counter)
@@ -53,10 +59,11 @@ def open_url(url):
     webbrowser.open(url)
 
 
+# Check if the killmail has a dropped value in a filter
 async def process_killmail(
     killmail_data, text_widget, counter_var, time_label, dt_label, settings
 ):
-    # Check if the killmail has a dropped value
+    # Assigns settings.json values
     officers = settings["officers"]
     belt_hunter_mode = settings["belt_hunter_mode"]
     abyssal_mods = settings["abyssal_mods"]
@@ -65,6 +72,18 @@ async def process_killmail(
     max_dropped_value = settings["dropped_value"]
     time_threshold_enabled = settings["time_threshold_enabled"]
     dropped_value_enabled = settings["dropped_value_enabled"]
+    email_host = settings["email_host"]
+    port = settings["port"]
+    gmail_enabled = settings["gmail"]
+    gmail.username = settings["email_username"]
+    gmail.password = settings["email_password"]
+    # email_username = settings["email_username"]
+    # email_password = settings["email_password"]
+
+    # Email alert functionality
+    # email = EmailSender(
+    #     host=email_host, port=port, username=gmail.username, password=gmail.password
+    # )
 
     if (
         "zkb" in killmail_data
@@ -73,6 +92,7 @@ async def process_killmail(
     ):
         dropped_value = killmail_data["zkb"]["droppedValue"]
 
+        url = killmail_data["zkb"]["url"]
         # Format the dropped item value
         formatted_dropped_value = format_dropped_value(dropped_value)
 
@@ -128,6 +148,11 @@ async def process_killmail(
                     label_color = "purple"
                     # Play a different audio alert
                     play_purple_alert()
+                    gmail.send(
+                        receivers=["patjobri003@gmail.com"],
+                        subject=f"{officer} found at {url}",
+                        text=f"{officer} found {time_difference} at {url}!",
+                    )
                     o = True
 
         if belt_hunter_mode:
@@ -225,10 +250,17 @@ async def process_killmail(
         kill_details = (
             f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
         )
+
+        gmail.send(
+            receivers=["patjobri003@gmail.com"],
+            subject=f"found at {url}",
+            text=f"found {time_difference} at {url}!",
+        )
+
         create_link_label(
             text_widget,
             kill_details,
-            killmail_data["zkb"]["url"],
+            url,
             color=text_color,
             bgcolor=label_color,
         )
