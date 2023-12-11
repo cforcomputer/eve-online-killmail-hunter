@@ -6,6 +6,9 @@ See the v1 release for a windows executable.
 
 ### Changing settings
 
+To configure the gmail forwarding function, [read this guide](https://red-mail.readthedocs.io/en/stable/tutorials/config.html#:~:text=When%20you%20have%20your%20application,you%20can%20send%20emails%20gmail.) to get your credentials. Then fill them into the settings.json and make sure gmail is enabled. `email_password` should be set to your app password.
+Make sure your network does not block outgoing connections on port 587 if you want email functionality to work!
+
 - You can adjust which lossmails are shown by editing the `settings.json` file.
 
   `"belt_hunter_mode": true` = will stop showing blueprints and special items, and only show commanders, officers, and belt rats
