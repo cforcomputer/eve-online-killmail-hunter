@@ -251,11 +251,11 @@ async def process_killmail(
             f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
         )
 
-        gmail.send(
-            receivers=["patjobri003@gmail.com"],
-            subject=f"found at {url}",
-            text=f"found {time_difference} at {url}!",
-        )
+        # gmail.send(
+        #     receivers=["patjobri003@gmail.com"],
+        #     subject=f"found at {url}",
+        #     text=f"found {time_difference} at {url}!",
+        # )
 
         create_link_label(
             text_widget,
