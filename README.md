@@ -4,7 +4,7 @@
 
 1. Download the folder
 2. Install the latest version of python (I use bundled anaconda)
-3. Install the required python packages
+3. Install the required python packages, along with [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 4. `simpleaudio`, `tkinter`, `websockets`, `webbrowser`
 5. You may need C++ Redistrutables 2019+
 6. Make sure that the following files are present in the same folder:
