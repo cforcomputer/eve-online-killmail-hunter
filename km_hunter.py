@@ -8,8 +8,8 @@ import webbrowser
 import simpleaudio
 import sys
 import re
-from redmail import EmailSender
-from redmail import gmail
+# from redmail import EmailSender
+# from redmail import gmail
 
 # Default settings
 DEFAULT_SETTINGS = {
@@ -25,7 +25,7 @@ DEFAULT_SETTINGS = {
 
 
 async def subscribe_to_killstream(
-    websocket, text_widget, counter_var, time_label, dt_label
+    websocket, text_widget, counter_var, time_label, dt_label, uri
 ):
     payload = {"action": "sub", "channel": "killstream"}
     await websocket.send(json.dumps(payload))
@@ -52,7 +52,8 @@ async def subscribe_to_killstream(
             counter_var.set(counter)
         except websockets.ConnectionClosed:
             text_widget.insert(tk.END, "WebSocket connection closed\n")
-            break
+            connect_websocket(uri, text_widget, counter_var, time_label, dt_label)
+            # break
 
 
 def open_url(url):
@@ -75,8 +76,8 @@ async def process_killmail(
     email_host = settings["email_host"]
     port = settings["port"]
     gmail_enabled = settings["gmail"]
-    gmail.username = settings["email_username"]
-    gmail.password = settings["email_password"]
+    # gmail.username = settings["email_username"]
+    # gmail.password = settings["email_password"]
     # email_username = settings["email_username"]
     # email_password = settings["email_password"]
 
@@ -148,11 +149,11 @@ async def process_killmail(
                     label_color = "purple"
                     # Play a different audio alert
                     play_purple_alert()
-                    gmail.send(
-                        receivers=["patjobri003@gmail.com"],
-                        subject=f"{officer} found at {url}",
-                        text=f"{officer} found {time_difference} at {url}!",
-                    )
+                    # gmail.send(
+                    #     receivers=["patjobri003@gmail.com"],
+                    #     subject=f"{officer} found at {url}",
+                    #     text=f"{officer} found {time_difference} at {url}!",
+                    # )
                     o = True
 
         if belt_hunter_mode:
@@ -397,7 +398,7 @@ def create_link_label(text_widget, text, url, color, bgcolor):
 async def connect_websocket(uri, text_widget, counter_var, time_label, dt_label):
     async with websockets.connect(uri) as websocket:
         await subscribe_to_killstream(
-            websocket, text_widget, counter_var, time_label, dt_label
+            websocket, text_widget, counter_var, time_label, dt_label,uri
         )
 
 
