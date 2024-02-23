@@ -7,9 +7,32 @@ import websockets
 import webbrowser
 import simpleaudio
 import sys
+import os
 import re
+from dotenv import load_dotenv
+import discord  # py -3 -m pip install -U discord.py
+from discord.ext import commands
+
 # from redmail import EmailSender
 # from redmail import gmail
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Discord bot token
+TOKEN = os.getenv("DISCORD_TOKEN")
+print(TOKEN)
+# Channel ID where you want to send the notification
+CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
+print(CHANNEL_ID)
+
+# intents = discord.Intents.default()
+# intents.message_content = True
+
+# client = discord.Client(intents=intents)
+
+# client.run(TOKEN)
+
 
 # Default settings
 DEFAULT_SETTINGS = {
@@ -35,8 +58,12 @@ async def subscribe_to_killstream(
     counter = 0
     counter_var.set(counter)
 
-    while True:
-        try:
+    ping_task = asyncio.create_task(send_pings(websocket))
+
+    try:
+        while True:
+            # Background task to send ping messages periodically
+
             response = await websocket.recv()
             settings = load_settings()
             response_data = json.loads(response)
@@ -50,10 +77,25 @@ async def subscribe_to_killstream(
             )
             counter += 1
             counter_var.set(counter)
-        except websockets.ConnectionClosed:
-            text_widget.insert(tk.END, "WebSocket connection closed\n")
-            connect_websocket(uri, text_widget, counter_var, time_label, dt_label)
-            # break
+    except websockets.ConnectionClosed:
+        text_widget.insert(tk.END, "WebSocket connection closed\n")
+        connect_websocket(uri, text_widget, counter_var, time_label, dt_label)
+    finally:
+        # Cancel the ping task when the loop ends
+        ping_task.cancel()
+
+
+async def send_pings(websocket):
+    while True:
+        try:
+            # Send a ping message
+            await websocket.ping()
+            print("PING!")
+            # Wait for 30 seconds before sending the next ping
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            # Stop sending pings if the task is cancelled
+            break
 
 
 def open_url(url):
@@ -145,6 +187,8 @@ async def process_killmail(
             o = False
             for officer in officers_list:
                 if str(officer) in killmail_data:
+                    # send_discord_bot_message
+                    await send_alert(f"Officer {officer} found!")
                     # Set label color to orange for officer/belt officer
                     label_color = "purple"
                     # Play a different audio alert
@@ -396,10 +440,15 @@ def create_link_label(text_widget, text, url, color, bgcolor):
 
 
 async def connect_websocket(uri, text_widget, counter_var, time_label, dt_label):
-    async with websockets.connect(uri) as websocket:
-        await subscribe_to_killstream(
-            websocket, text_widget, counter_var, time_label, dt_label,uri
-        )
+    while True:
+        try:
+            async with websockets.connect(uri) as websocket:
+                await subscribe_to_killstream(
+                    websocket, text_widget, counter_var, time_label, dt_label, uri
+                )
+        except websockets.exceptions.ConnectionClosed as e:
+            print(f"WebSocket connection closed: {e}")
+            await asyncio.sleep(5)  # Wait for 5 seconds before attempting to reconnect
 
 
 async def run_tkinter_loop(root, text_widget, time_label, dt_label):
@@ -494,5 +543,33 @@ def close_window(root):
     sys.exit(0)  # Ensure the program exits
 
 
+# Create a custom bot class inheriting from commands.Bot
+class DiscordBot(commands.Bot):
+    async def send_alert(self, message):
+        channel = self.get_channel(CHANNEL_ID)
+        await channel.send(message)
+
+
+# Create an instance of the bot
+bot = DiscordBot(command_prefix="!", intents=discord.Intents.default())
+
+
+async def start_bot():
+    try:
+        await bot.start(TOKEN)
+    except KeyboardInterrupt:
+        await bot.close()
+
+
+# Function to send an alert
+async def send_alert(message):
+    await bot.send_alert(message)
+
+
+# Start the bot and GUI in separate async tasks
+async def main():
+    await asyncio.gather(start_bot(), start_gui())
+
+
 if __name__ == "__main__":
-    asyncio.run(start_gui())
+    asyncio.run(main())

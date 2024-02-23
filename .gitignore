@@ -3,3 +3,4 @@ dist/*
 build/*
 socket4.spec
 credentials.txt
+.env
