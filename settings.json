@@ -4,9 +4,9 @@
     "abyssal_mods": false, 
     "blueprints": false,
     "time_threshold_enabled": false, 
-    "time_threshold": 12, 
+    "time_threshold": 120000, 
     "dropped_value_enabled": false,
-    "dropped_value": 100,
-    "audio_alerts_enabled": true
+    "dropped_value": 0,
+    "audio_alerts_enabled": false
 }
   
