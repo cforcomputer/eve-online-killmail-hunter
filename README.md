@@ -2,14 +2,33 @@
 
 ## Releases
 
-See the v1 release for a windows executable.
+The new v1.1 release will be added soon.
+Fixes includes: 
+- Option to turn off audio alerts in settings
+- Additional filters, improved filter logic
+- Loading filters from simple txt files with ids
+- An improved resizable GUI with a scroll bar
+- Double clicking an item in the GUI now opens the URL
+- I think I might have fixed the disconnect issue by periodically disconnecting and reconnecting (it runs for long enough to not know yet!!)
+
 
 ### Changing settings
 
-To configure the gmail forwarding function, [read this guide](https://red-mail.readthedocs.io/en/stable/tutorials/config.html#:~:text=When%20you%20have%20your%20application,you%20can%20send%20emails%20gmail.) to get your credentials. Then fill them into the settings.json and make sure gmail is enabled. `email_password` should be set to your app password.
-Make sure your network does not block outgoing connections on port 587 if you want email functionality to work!
+The gmail send feature has been replaced by webhooks. Now you can get the notifications delivered directly to your
+discord server channel of your choosing, or any chat service that supports channel webhooks! Just create a webhook 
+for that channel in channel settings, and create a file called `.env` with no name, just the file extension. Make sure 
+it is in the same folder.
+Insert this into into the `.env` file: 
+```
+FEED_HOOK=YOUR_WEBHOOK_URL
+```
+Now you will get notifications when your custom filters detect a killmail!
 
-- You can adjust which lossmails are shown by editing the `settings.json` file.
+In a future update all filters will be loaded from text files and set in settings.json
+Note: changes to settings.json update the program in real time! No need to restart it.
+
+
+- You can adjust which lossmails are shown by editing the `settings.json` file. This is still a WIP, not all filters work as intended.
 
   `"belt_hunter_mode": true` = will stop showing blueprints and special items, and only show commanders, officers, and belt rats
 
