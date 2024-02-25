@@ -2,7 +2,7 @@
 
 ## Releases
 
-The new v1.1 release will be added soon.
+The new v1.2 release will be added soon.
 Fixes includes: 
 - Option to turn off audio alerts in settings
 - Additional filters, improved filter logic
