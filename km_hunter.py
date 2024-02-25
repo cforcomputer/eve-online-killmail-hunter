@@ -9,29 +9,25 @@ import simpleaudio
 import sys
 import os
 import re
+import requests
 from dotenv import load_dotenv
-import discord  # py -3 -m pip install -U discord.py
-from discord.ext import commands
-
-# from redmail import EmailSender
-# from redmail import gmail
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Discord bot token
-TOKEN = os.getenv("DISCORD_TOKEN")
-print(TOKEN)
-# Channel ID where you want to send the notification
-CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
-print(CHANNEL_ID)
+# Discord WEBHOOK URL --> go to channel settings, integrations, create webhook
+# Then copy url and place it in the .env file.
+WEBHOOK_URL = os.getenv("FEED_HOOK")
 
-# intents = discord.Intents.default()
-# intents.message_content = True
+async def send_discord_webhook(message):
+        print("Sending webhook")
+        data = {"content": message}
+        webhook_url = WEBHOOK_URL
 
-# client = discord.Client(intents=intents)
-
-# client.run(TOKEN)
+        if webhook_url:
+            response = requests.post(webhook_url, json=data)
+            # if response.status_code != 200:
+            #     print(f"Failed to send Discord webhook: {response.status_code}")
 
 
 # Default settings
@@ -44,6 +40,7 @@ DEFAULT_SETTINGS = {
     "time_threshold_enabled": True,
     "time_threshold": 1200,
     "dropped_value": 100000000,
+    "audio_alerts_enabled": True,  # New setting for audio alerts
 }
 
 
@@ -115,18 +112,7 @@ async def process_killmail(
     max_dropped_value = settings["dropped_value"]
     time_threshold_enabled = settings["time_threshold_enabled"]
     dropped_value_enabled = settings["dropped_value_enabled"]
-    email_host = settings["email_host"]
-    port = settings["port"]
-    gmail_enabled = settings["gmail"]
-    # gmail.username = settings["email_username"]
-    # gmail.password = settings["email_password"]
-    # email_username = settings["email_username"]
-    # email_password = settings["email_password"]
-
-    # Email alert functionality
-    # email = EmailSender(
-    #     host=email_host, port=port, username=gmail.username, password=gmail.password
-    # )
+    audio_alerts_enabled = settings["audio_alerts_enabled"]  # New setting for audio alerts
 
     if (
         "zkb" in killmail_data
@@ -188,11 +174,12 @@ async def process_killmail(
             for officer in officers_list:
                 if str(officer) in killmail_data:
                     # send_discord_bot_message
-                    await send_alert(f"Officer {officer} found!")
+                    await send_discord_webhook(f"Officer {officer} found!")
                     # Set label color to orange for officer/belt officer
                     label_color = "purple"
-                    # Play a different audio alert
-                    play_purple_alert()
+                    # Play a different audio alert if enabled
+                    if audio_alerts_enabled:
+                        play_purple_alert()
                     # gmail.send(
                     #     receivers=["patjobri003@gmail.com"],
                     #     subject=f"{officer} found at {url}",
@@ -278,29 +265,31 @@ async def process_killmail(
             # Item contains a blueprint or special item
             label_color = "blue"
             text_color = "white"
-            play_blue_alert()
+            # Play blue alert if audio alerts are enabled
+            if audio_alerts_enabled:
+                play_blue_alert()
         else:
-            # Check if the time difference is greater than 20 minutes and that the value is greater than 100 million
+            # Check if the time difference is greater than TIME VALUE and that the value is greater than ISK VALUE
             # Only perform the check if the item does not contain blueprints, abyssals, and is not an officer/commander
             if dropped_value < max_dropped_value and dropped_value_enabled == True:
                 print(
                     f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}"
                 )  # debug
                 return
-            # Play the default audio alert
-            play_audio_alert()
+            # Play the default audio alert if enabled
+            if audio_alerts_enabled:
+                play_audio_alert()
 
         await asyncio.sleep(0.6)  #
         # Create a label to display all details including clickable link and time difference
         kill_details = (
             f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
         )
-
-        # gmail.send(
-        #     receivers=["patjobri003@gmail.com"],
-        #     subject=f"found at {url}",
-        #     text=f"found {time_difference} at {url}!",
-        # )
+        
+        try:
+            await send_discord_webhook(f"Kill found! {kill_details} \nurl: {url}")
+        except TypeError as e:
+            print("Error sending webhook" + str(e))
 
         create_link_label(
             text_widget,
@@ -309,6 +298,9 @@ async def process_killmail(
             color=text_color,
             bgcolor=label_color,
         )
+
+        
+
         text_widget.insert(tk.END, "\n")
 
 
@@ -477,7 +469,7 @@ def clear_text_and_labels(text_widget):
 async def start_gui():
     root = tk.Tk()
     root.minsize(100, 600)
-    root.title("NPC Hunter Live XTREME V1")
+    root.title("NPC Hunter Live XTREME V1.1")
 
     text_widget = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=20)
     text_widget.pack(padx=10, pady=10)
@@ -543,32 +535,11 @@ def close_window(root):
     sys.exit(0)  # Ensure the program exits
 
 
-# Create a custom bot class inheriting from commands.Bot
-class DiscordBot(commands.Bot):
-    async def send_alert(self, message):
-        channel = self.get_channel(CHANNEL_ID)
-        await channel.send(message)
-
-
-# Create an instance of the bot
-bot = DiscordBot(command_prefix="!", intents=discord.Intents.default())
-
-
-async def start_bot():
-    try:
-        await bot.start(TOKEN)
-    except KeyboardInterrupt:
-        await bot.close()
-
-
-# Function to send an alert
-async def send_alert(message):
-    await bot.send_alert(message)
 
 
 # Start the bot and GUI in separate async tasks
 async def main():
-    await asyncio.gather(start_bot(), start_gui())
+    await start_gui()
 
 
 if __name__ == "__main__":
