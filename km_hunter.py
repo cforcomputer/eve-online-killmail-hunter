@@ -12,10 +12,13 @@ import re
 import requests
 from dotenv import load_dotenv
 import tkinter.font as tkFont
+import random
 
 # Load environment variables from .env file
 load_dotenv()
 
+global GLOBAL_COUNT
+GLOBAL_COUNT = 0
 # Discord WEBHOOK URL --> go to channel settings, integrations, create webhook
 # Then copy url and place it in the .env file.
 WEBHOOK_URL = os.getenv("FEED_HOOK")
@@ -31,10 +34,6 @@ async def send_discord_webhook(message):
 
 # Default settings
 DEFAULT_SETTINGS = {
-    "belt_hunter_mode": False,
-    "officers": True,
-    "abyssal_mods": False,
-    "blueprints": False,
     "dropped_value_enabled": False,
     "time_threshold_enabled": True,
     "time_threshold": 1200,
@@ -43,21 +42,21 @@ DEFAULT_SETTINGS = {
 }
 
 async def subscribe_to_killstream(
-    websocket, treeview, counter_var, time_label, dt_label, uri
+    websocket, treeview, counter_var, time_label, dt_label, uri, filter_lists
 ):
+    global GLOBAL_COUNT
     payload = {"action": "sub", "channel": "killstream"}
     await websocket.send(json.dumps(payload))
-    print(f"Subscribed to {payload['channel']} channel")
+    print(f"Subscribed to {payload['channel']} channel at: " + str(datetime.datetime.now()))
 
-    # Initialize the counter
-    counter = 0
-    counter_var.set(counter)
+    counter_var.set(GLOBAL_COUNT)
 
     ping_task = asyncio.create_task(send_pings(websocket))
 
     try:
         while True:
             response = await websocket.recv()
+            
             settings = load_settings()
             response_data = json.loads(response)
             await process_killmail(
@@ -66,21 +65,24 @@ async def subscribe_to_killstream(
                 counter_var,
                 time_label,
                 dt_label,
+                filter_lists,  # Pass filter_lists here
                 settings,
             )
-            counter += 1
-            counter_var.set(counter)
+            GLOBAL_COUNT += 1
+            counter_var.set(GLOBAL_COUNT)
     except websockets.ConnectionClosed:
         print("WebSocket connection closed")
-        connect_websocket(uri, treeview, counter_var, time_label, dt_label)
+        await connect_websocket(uri, treeview, counter_var, time_label, dt_label, filter_lists)
+  # Pass filter_lists here
     finally:
         ping_task.cancel()
+
 
 async def send_pings(websocket):
     while True:
         try:
             await websocket.ping()
-            print("PING!")
+            # print("PING!") #debug
             await asyncio.sleep(30)
         except asyncio.CancelledError:
             break
@@ -88,150 +90,104 @@ async def send_pings(websocket):
 def open_url(url):
     webbrowser.open(url)
 
-async def process_killmail(
-    killmail_data, treeview, counter_var, time_label, dt_label, settings
+# Function to play alert sound
+def play_alert_sound(sound_file):
+    if sound_file:
+        try:
+            wave_obj = simpleaudio.WaveObject.from_wave_file(sound_file)
+            play_obj = wave_obj.play()
+            play_obj.wait_done()
+        except Exception as e:
+            print(f"Error playing alert sound: {e}")
+
+async def process_killmail(killmail_data, treeview, counter_var, time_label, dt_label, filter_lists, settings
 ):
     # Assigns settings.json values
-    officers = settings["officers"]
-    belt_hunter_mode = settings["belt_hunter_mode"]
-    abyssal_mods = settings["abyssal_mods"]
-    blueprints = settings["blueprints"]
-    max_time_threshold = settings["time_threshold"]
-    max_dropped_value = settings["dropped_value"]
-    time_threshold_enabled = settings["time_threshold_enabled"]
-    dropped_value_enabled = settings["dropped_value_enabled"]
-    audio_alerts_enabled = settings["audio_alerts_enabled"]
+    max_time_threshold = settings.get("time_threshold", 1200)
+    max_dropped_value = settings.get("dropped_value", 100000000)
+    time_threshold_enabled = settings.get("time_threshold_enabled", True)
+    dropped_value_enabled = settings.get("dropped_value_enabled", False)
+    audio_alerts_enabled = settings.get("audio_alerts_enabled", True)
 
     label_color = ""  # Initialize label color
 
     if (
         "zkb" in killmail_data
-        and "npc" in killmail_data["zkb"]
-        and killmail_data["zkb"]["npc"]
+        # and "npc" in killmail_data["zkb"] # TODO: Make this an option to filter on npc only
+        # and killmail_data["zkb"]["npc"]
     ):
+        # killmail_data = r"{'attackers': [{'corporation_id': 1000134, 'damage_done': 14787, 'final_blow': False, 'security_status': 0, 'ship_type_id': 13609}, {'corporation_id': 1000162, 'damage_done': 0, 'final_blow': True, 'security_status': 0, 'ship_type_id': 13539}], 'killmail_id': 115846822, 'killmail_time': '2024-02-26T22:28:19Z', 'solar_system_id': 30002203, 'victim': {'alliance_id': 99012618, 'character_id': 92585977, 'corporation_id': 1670856481, 'damage_taken': 14787, 'items': [{'flag': 5, 'item_type_id': 60279, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 5, 'item_type_id': 60279, 'quantity_dropped': 5, 'singleton': 0}, {'flag': 27, 'item_type_id': 56306, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 13, 'item_type_id': 1405, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 93, 'item_type_id': 31718, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 11, 'item_type_id': 28576, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 28, 'item_type_id': 60279, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 94, 'item_type_id': 31754, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 19, 'item_type_id': 380, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 92, 'item_type_id': 31766, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 87, 'item_type_id': 10246, 'quantity_destroyed': 2, 'singleton': 0}, {'flag': 87, 'item_type_id': 10246, 'quantity_dropped': 2, 'singleton': 0}, {'flag': 12, 'item_type_id': 28576, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 27, 'item_type_id': 17912, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 20, 'item_type_id': 12058, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 5, 'item_type_id': 2456, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 28, 'item_type_id': 17912, 'quantity_dropped': 1, 'singleton': 0}], 'position': {'x': -1184906903386.7654, 'y': -77016642186.46077, 'z': -547718785673.0664}, 'ship_type_id': 17478}, 'zkb': {'locationID': 40140327, 'hash': 'd7fe81868aeefcd5ed9738db33607f6575052b40', 'fittedValue': 84214064.17, 'droppedValue': 19790070.52, 'destroyedValue': 65793547.51, 'totalValue': 85583618.03, 'points': 1, 'npc': True, 'solo': False, 'awox': False, 'esi': 'https://esi.evetech.net/latest/killmails/115846822/d7fe81868aeefcd5ed9738db33607f6575052b40/', 'url': 'https://zkillboard.com/kill/115846822/'}}"
         dropped_value = killmail_data["zkb"]["droppedValue"]
         url = killmail_data["zkb"]["url"]
+        # Gather attacker ids ------
+        attacker_ship_type_ids = []
+        if killmail_data["attackers"]:
+            for attacker in killmail_data["attackers"]:
+                try:
+                    attacker_ship_type_ids.append(attacker["ship_type_id"])
+                except:
+                    pass
+        # --------------------------
         formatted_dropped_value = format_dropped_value(dropped_value)
         killmail_time = datetime.strptime(
             killmail_data["killmail_time"], "%Y-%m-%dT%H:%M:%SZ"
         ).replace(tzinfo=timezone.utc)
         time_difference = calculate_time_difference(killmail_time)
 
+        # Updating eve time
         if (
-            calculate_filter_difference(killmail_time) > max_time_threshold
-            and time_threshold_enabled == True
+            (calculate_filter_difference(killmail_time) > max_time_threshold
+            and time_threshold_enabled == True) or (dropped_value < max_dropped_value and dropped_value_enabled)
         ):
             print(
-                f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}"
+                f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value} {url}"
             )
             return
 
-        if officers:
-            officers_list = [
-                13557, 13654, 13564, 13544, 13573, 13589, 13603, 52475,
-                13667, 13584, 13635, 13659, 13615, 13661, 13609, 13538,
-                13536, 13580, 13622, 13561, 13541
-            ]
-            o = False
-            for officer in officers_list:
-                if str(officer) in killmail_data:
-                    await send_discord_webhook(f"Officer {officer} found!")
-                    label_color = "purple"
-                    if audio_alerts_enabled:
-                        play_purple_alert()
-                    o = True
-
-        if belt_hunter_mode:
-            belter_list = [
-                33174, 13602, 13601, 23356, 23355, 13578, 13579, 13588,
-                23357, 13583, 23358, 23469, 13660, 13658, 13666, 23471,
-                23470, 23472, 13665, 13653, 33164, 13652, 13562, 13560,
-                13572, 23300, 13563, 23299, 13559, 23301, 23302, 13556,
-                33172, 22873, 13535, 13537, 22871, 13542, 13540, 22874,
-                22872, 13539, 33173, 13543, 33163, 13633, 23401, 23402,
-                13606, 13620, 23400, 13621, 13634, 13614, 23403, 33163
-            ]
-            mordus_list = [33866, 33864, 33865]
-            for mordu in mordus_list:
-                if str(mordu) in killmail_data:
-                    label_color = "orange"
-
-            for belter in belter_list:
-                if str(belter) in killmail_data:
-                    label_color = "orange"
-                elif not o:
-                    return
-
-        if (
-            check_number_combination(killmail_data, blueprints, abyssal_mods)
-            and belt_hunter_mode == False
-        ):
-            label_color = "blue"
-            if audio_alerts_enabled:
-                play_blue_alert()
-        else:
-            if dropped_value < max_dropped_value and dropped_value_enabled == True:
-                print(
-                    f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}"
-                )
-                return
-            if audio_alerts_enabled:
-                play_audio_alert()
-
-        await asyncio.sleep(0.6)
+        
+        # Kill details webhook message string
         kill_details = (
-            f"Dropped Value: {formatted_dropped_value} - Occurred: {time_difference}"
+            f"{killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}\n{url}"
         )
+        
+        # Load filters and check for id matches for each filter
 
-        try:
-            await send_discord_webhook(f"Kill found! {kill_details} \nurl: {url}")
-        except TypeError as e:
-            print("Error sending webhook" + str(e))
+        for filter_item in filter_lists:
+            enabled = filter_item.get("enabled")
 
-        treeview.insert("", "end", values=(formatted_dropped_value, time_difference, url), tags=label_color)
+            if enabled:
+                print(filter_item)
+                file_id_list = load_list_from_file(filter_item.get("file"))
+                
 
-def check_number_combination(raw_response, blueprints, abyssal_mods):
-    response = str(raw_response)
-    if blueprints:
-        with open("blueprints.txt", "r") as file:
-            number_combinations_to_check = [line.strip() for line in file.readlines()]
-        for combination in number_combinations_to_check:
-            if re.search('"item_type_id": ' + combination + ",", response):
-                return True
-    if abyssal_mods:
-        with open("abyssals.txt", "r") as file:
-            abyssal_ids = [line.strip() for line in file.readlines()]
-        for id in abyssal_ids:
-            if re.search('"item_type_id": ' + id + ",", response):
-                return True
-    return False
+                for filter_id in file_id_list:
+                    for id in attacker_ship_type_ids:
+                        if filter_id == id:
+                            try:
+                                if filter_item.get("webhook", False):
+                                    await send_discord_webhook(f"Kill found! {kill_details} \nurl: {url}")
+                            except TypeError as e:
+                                print("Error sending webhook" + str(e))
+                            
+                            label_color = filter_item.get("color", "")
+                            if audio_alerts_enabled and filter_item.get("sound"): # filter sound = true or false
+                                play_alert_sound(filter_item.get("sound"))
 
-def play_audio_alert():
-    audio_path = "alert.wav"
+                            # await asyncio.sleep(0.6)
+                            treeview.insert("", "end", values=(formatted_dropped_value, time_difference, url), tags=label_color)
+                        
+        print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value} {url}")
+    else:
+        print("zkb not in km data")
+
+
+def load_list_from_file(filename):
     try:
-        wave_obj = simpleaudio.WaveObject.from_wave_file(audio_path)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
-    except Exception as e:
-        print(f"Error playing audio alert: {e}")
-
-def play_purple_alert():
-    purple_audio_path = "purple_alert.wav"
-    try:
-        wave_obj = simpleaudio.WaveObject.from_wave_file(purple_audio_path)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
-    except Exception as e:
-        print(f"Error playing purple audio alert: {e}")
-
-def play_blue_alert():
-    blue_audio_path = "blue_alert.wav"
-    try:
-        wave_obj = simpleaudio.WaveObject.from_wave_file(blue_audio_path)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
-    except Exception as e:
-        print(f"Error playing blue audio alert: {e}")
+        with open(filename, "r") as file:
+            return [int(line.strip()) for line in file.readlines()]
+    except FileNotFoundError:
+        return []
+   
 
 def calculate_filter_difference(killmail_time):
     current_time = datetime.now(timezone.utc)
@@ -272,15 +228,15 @@ def format_dropped_value(value):
 def clear_treeview(treeview):
     treeview.delete(*treeview.get_children())
 
-async def connect_websocket(uri, treeview, counter_var, time_label, dt_label):
+async def connect_websocket(uri, treeview, counter_var, time_label, dt_label, filter_lists):
     while True:
         try:
             async with websockets.connect(uri) as websocket:
                 await subscribe_to_killstream(
-                    websocket, treeview, counter_var, time_label, dt_label, uri
+                    websocket, treeview, counter_var, time_label, dt_label, uri, filter_lists
                 )
         except websockets.exceptions.ConnectionClosed as e:
-            print(f"WebSocket connection closed: {e}")
+            print(f"WebSocket connection closed: {e} at: " + str(datetime.datetime.now()))
             await asyncio.sleep(5)
 
 async def run_tkinter_loop(root, treeview, time_label, dt_label):
@@ -300,6 +256,18 @@ async def run_tkinter_loop(root, treeview, time_label, dt_label):
 
 
 async def start_gui():
+    def load_filter_lists():
+        # Implement your logic to load filter lists here
+        # For example:
+        filter_lists = [
+            {"file": "officers.txt", "color": "purple", "webhook": True, "sound": "alert.wav"},
+            {"file": "belt_hunters.txt", "color": "orange"},
+            # Add more filters as needed
+        ]
+        return filter_lists
+    
+    filter_lists = load_filter_lists()
+    
     root = tk.Tk()
     root.minsize(280, 300)
     root.title("NPC Hunter 1.1")
@@ -354,12 +322,14 @@ async def start_gui():
 
     try:
         await asyncio.gather(
-            connect_websocket(uri, treeview, counter_var, time_label, dt_label),
+            connect_websocket(uri, treeview, counter_var, time_label, dt_label, filter_lists),
             run_tkinter_loop(root, treeview, time_label, dt_label),
         )
     except tk.TclError as e:
         if "application has been destroyed" not in str(e):
             raise
+
+
 
 def open_url_in_browser(treeview):
     selected_item = treeview.selection()[0]

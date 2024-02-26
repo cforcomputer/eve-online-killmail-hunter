@@ -1,12 +1,47 @@
 {
-    "belt_hunter_mode": false,
-    "officers": false,
-    "abyssal_mods": false, 
-    "blueprints": false,
-    "time_threshold_enabled": false, 
-    "time_threshold": 120000, 
-    "dropped_value_enabled": false,
-    "dropped_value": 0,
-    "audio_alerts_enabled": false
-}
+    "filter_lists": [
+      {
+        "file": "officers.txt",
+        "color": "purple",
+        "webhook": true,
+        "sound": "alert.wav",
+        "enabled": true
+      },
+      {
+        "file": "belt_hunters.txt",
+        "color": "orange",
+        "webhook": false,
+        "sound": "orange_alert.wav",
+        "enabled": true
+      },
+      {
+        "file": "mordus.txt",
+        "color": "orange",
+        "webhook": true,
+        "sound": "orange_alert.wav",
+        "enabled": true
+      },
+      {
+        "file": "blueprints.txt",
+        "color": "blue",
+        "webhook": false,
+        "sound": "blue_alert.wav",
+        "enabled": false
+      },
+      {
+        "file": "abyssals.txt",
+        "color": "red",
+        "webhook": false,
+        "sound": "blue_alert.wav",
+        "enabled": false
+      }
+    ],
+    "settings": {
+      "dropped_value_enabled": false,
+      "time_threshold_enabled": false,
+      "time_threshold": 120000,
+      "dropped_value": 100000000,
+      "audio_alerts_enabled": false
+    }
+  }
   
