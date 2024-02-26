@@ -47,7 +47,7 @@ async def subscribe_to_killstream(
     global GLOBAL_COUNT
     payload = {"action": "sub", "channel": "killstream"}
     await websocket.send(json.dumps(payload))
-    print(f"Subscribed to {payload['channel']} channel at: " + str(datetime.now))
+    print(f"Subscribed to {payload['channel']} channel at: " + str(datetime.now(timezone.utc)))
 
     counter_var.set(GLOBAL_COUNT)
 
@@ -236,7 +236,7 @@ async def connect_websocket(uri, treeview, counter_var, time_label, dt_label, fi
                     websocket, treeview, counter_var, time_label, dt_label, uri, filter_lists
                 )
         except websockets.exceptions.ConnectionClosed as e:
-            print(f"WebSocket connection closed: {e} at: " + str(datetime.now))
+            print(f"WebSocket connection closed: {e} at: " + str(datetime.now(timezone.utc)))
             await asyncio.sleep(5)
 
 async def run_tkinter_loop(root, treeview, time_label, dt_label):
