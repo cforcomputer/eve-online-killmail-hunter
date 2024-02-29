@@ -108,13 +108,16 @@ def play_alert_sound(sound_file):
 async def process_killmail(killmail_data, treeview, counter_var, time_label, dt_label, filter_lists, settings
 ):
     # Assigns settings.json values
-    max_time_threshold = settings.get("time_threshold", 1200)
-    max_dropped_value = settings.get("dropped_value", 100000000)
-    time_threshold_enabled = settings.get("time_threshold_enabled", True)
-    dropped_value_enabled = settings.get("dropped_value_enabled", False)
-    audio_alerts_enabled = settings.get("audio_alerts_enabled", True)
-    is_priority = False
-
+    max_time_threshold = settings.get("time_threshold", 1200 ) # 
+    max_dropped_value = settings.get("dropped_value", 100000000) # 
+    time_threshold_enabled = settings.get("time_threshold_enabled", True) # 
+    dropped_value_enabled = settings.get("dropped_value_enabled", True) # 
+    audio_alerts_enabled = settings.get("audio_alerts_enabled", True) # 
+    print("max_time_threshold: " + str(max_time_threshold))
+    print("max_dropped_value: " + str(max_dropped_value))
+    print("time_threshhold_enabled: " + str(time_threshold_enabled))
+    print("dropped_value_enabled: " + str(dropped_value_enabled))
+    print("audio_alerts_enabled: " + str(audio_alerts_enabled))
 
     label_color = ""  # Initialize label color
 
@@ -415,14 +418,21 @@ def open_url_in_browser(treeview):
 def load_settings():
     try:
         with open("settings.json", "r") as file:
-            settings = json.load(file)
+            settings_data = json.load(file)
+            filter_lists = settings_data.get("filter_lists", [])
+            settings = settings_data.get("settings", DEFAULT_SETTINGS)
+            settings["filter_lists"] = filter_lists
     except FileNotFoundError:
-        settings = DEFAULT_SETTINGS
+        settings = {
+            "filter_lists": [],
+            "settings": DEFAULT_SETTINGS
+        }
     return settings
+
 
 def save_settings(settings):
     with open("settings.json", "w") as file:
-        json.dump(settings, file)
+        json.dump(settings, file, indent=4)
 
 def close_window(root):
     root.destroy()

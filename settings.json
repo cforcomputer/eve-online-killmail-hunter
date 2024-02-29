@@ -44,8 +44,8 @@
     "settings": {
         "dropped_value_enabled": false,
         "time_threshold_enabled": false,
-        "time_threshold": 120000,
-        "dropped_value": 100000000,
+        "time_threshold": 120001,
+        "dropped_value": 100000001,
         "audio_alerts_enabled": false
     }
 }
