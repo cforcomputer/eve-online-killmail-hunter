@@ -2,17 +2,19 @@ import asyncio
 import json
 from datetime import datetime, timezone
 import tkinter as tk
-from tkinter import scrolledtext, ttk
+from tkinter import ttk
 import websockets
 import webbrowser
 import simpleaudio
 import sys
 import os
-import re
 import requests
 from dotenv import load_dotenv
-import tkinter.font as tkFont
-import random
+import argparse
+
+# Define the command-line arguments
+parser = argparse.ArgumentParser(description="NPC Hunter")
+parser.add_argument("--no-gui", action="store_true", help="Run the program without GUI")
 
 # Load environment variables from .env file
 load_dotenv()
@@ -49,7 +51,8 @@ async def subscribe_to_killstream(
     await websocket.send(json.dumps(payload))
     print(f"Subscribed to {payload['channel']} channel at: " + str(datetime.now(timezone.utc)))
 
-    counter_var.set(GLOBAL_COUNT)
+    if counter_var is not None:
+        counter_var.set(GLOBAL_COUNT)
 
     ping_task = asyncio.create_task(send_pings(websocket))
 
@@ -69,13 +72,15 @@ async def subscribe_to_killstream(
                 settings,
             )
             GLOBAL_COUNT += 1
-            counter_var.set(GLOBAL_COUNT)
+            if counter_var is not None:
+                counter_var.set(GLOBAL_COUNT)
     except websockets.ConnectionClosed:
-        print("WebSocket connection closed")
+        print("WebSocket connection closed at: " + str(datetime.now(timezone.utc)))
         await connect_websocket(uri, treeview, counter_var, time_label, dt_label, filter_lists)
   # Pass filter_lists here
     finally:
         ping_task.cancel()
+
 
 
 async def send_pings(websocket):
@@ -108,6 +113,8 @@ async def process_killmail(killmail_data, treeview, counter_var, time_label, dt_
     time_threshold_enabled = settings.get("time_threshold_enabled", True)
     dropped_value_enabled = settings.get("dropped_value_enabled", False)
     audio_alerts_enabled = settings.get("audio_alerts_enabled", True)
+    is_priority = False
+
 
     label_color = ""  # Initialize label color
 
@@ -134,29 +141,33 @@ async def process_killmail(killmail_data, treeview, counter_var, time_label, dt_
         ).replace(tzinfo=timezone.utc)
         time_difference = calculate_time_difference(killmail_time)
 
-        # Updating eve time
-        if (
-            (calculate_filter_difference(killmail_time) > max_time_threshold
-            and time_threshold_enabled == True) or (dropped_value < max_dropped_value and dropped_value_enabled)
-        ):
-            print(
-                f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value} {url}"
-            )
-            return
+        
 
         
-        # Kill details webhook message string
-        kill_details = (
-            f"{killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}\n{url}"
-        )
         
         # Load filters and check for id matches for each filter
 
         for filter_item in filter_lists:
             enabled = filter_item.get("enabled")
+            priority = filter_item.get("priority")
+
+                # Calculating eve time occurred ago, and the dropped value.
+            if (
+                (calculate_filter_difference(killmail_time) > max_time_threshold
+                and time_threshold_enabled == True) or (dropped_value < max_dropped_value and dropped_value_enabled and not priority)
+            ):
+                print(
+                    f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value} {url}"
+                )
+                return
+            
+            # Kill details webhook message string
+            kill_details = (
+                f"{killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}\n{url}"
+            )
 
             if enabled:
-                print(filter_item)
+                # print(filter_item)
                 file_id_list = load_list_from_file(filter_item.get("file"))
                 
 
@@ -174,8 +185,8 @@ async def process_killmail(killmail_data, treeview, counter_var, time_label, dt_
                                 play_alert_sound(filter_item.get("sound"))
 
                             # await asyncio.sleep(0.6)
-                            treeview.insert("", "end", values=(formatted_dropped_value, time_difference, url), tags=label_color)
-                        
+                            treeview.insert("", "end", values=(formatted_dropped_value, time_difference, url), tags=label_color)        
+                
         print(f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value} {url}")
     else:
         print("zkb not in km data")
@@ -187,6 +198,8 @@ def load_list_from_file(filename):
             return [int(line.strip()) for line in file.readlines()]
     except FileNotFoundError:
         return []
+    
+    
    
 
 def calculate_filter_difference(killmail_time):
@@ -235,8 +248,8 @@ async def connect_websocket(uri, treeview, counter_var, time_label, dt_label, fi
                 await subscribe_to_killstream(
                     websocket, treeview, counter_var, time_label, dt_label, uri, filter_lists
                 )
-        except websockets.exceptions.ConnectionClosed as e:
-            print(f"WebSocket connection closed: {e} at: " + str(datetime.now(timezone.utc)))
+        except Exception as e:
+            print(f"WebSocket connection closed: {e}")
             await asyncio.sleep(5)
 
 async def run_tkinter_loop(root, treeview, time_label, dt_label):
@@ -254,82 +267,145 @@ async def run_tkinter_loop(root, treeview, time_label, dt_label):
         if "application has been destroyed" not in str(e):
             raise
 
+ # Function to update the settings JSON based on GUI selection
+def update_settings(settings, enabled_vars):
+    # Update the "enabled" field in the settings dictionary
+    for filter_item, enabled_var in zip(settings["filter_lists"], enabled_vars):
+        filter_item["enabled"] = enabled_var.get()
 
-async def start_gui():
-    def load_filter_lists():
-        # Implement your logic to load filter lists here
-        # For example:
-        filter_lists = [
-            {"file": "officers.txt", "color": "purple", "webhook": True, "sound": "alert.wav"},
-            {"file": "belt_hunters.txt", "color": "orange"},
-            # Add more filters as needed
-        ]
-        return filter_lists
-    
-    filter_lists = load_filter_lists()
-    
-    root = tk.Tk()
-    root.minsize(280, 300)
-    root.title("NPC Hunter 1.1")
-    root.pack_propagate(False)
+    # Write the updated settings back to the JSON file
+    with open("settings.json", "w") as file:
+        json.dump(settings, file, indent=4)  # Use indent parameter for pretty formatting
 
-    main_frame = tk.Frame(root)
-    main_frame.pack(fill="both", expand=True)
-    main_frame.pack_propagate(False)
 
-    treeview = ttk.Treeview(main_frame, columns=("Value", "Occurred"), show="headings")
-    treeview.heading("Value", text="Dropped Value")
-    treeview.heading("Occurred", text="Occurred")
+async def start_gui(settings, with_gui=True):
+    if with_gui:
+        # Create the root window
+        root = tk.Tk()
+        root.minsize(280, 300)
+        root.title("NPC Hunter 1.1")
+        root.pack_propagate(False)
 
-    # Configure the column widths to adjust automatically based on content
-    treeview.column("Value", width=tkFont.Font().measure("Dropped Value"))
-    treeview.column("Occurred", width=tkFont.Font().measure("Occurred"))
+        # Create the main frame
+        main_frame = tk.Frame(root)
+        main_frame.pack(fill="both", expand=True)
+        main_frame.pack_propagate(False)
 
-    treeview.pack(side="left", fill="both", expand=True)
+        # Create the treeview widget
+        treeview = ttk.Treeview(main_frame, columns=("Value", "Occurred"), show="headings")
+        treeview.heading("Value", text="Dropped Value")
+        treeview.heading("Occurred", text="Occurred")
+        treeview.pack(side="left", fill="both", expand=True)
 
-    sb = tk.Scrollbar(main_frame, command=treeview.yview)
-    sb.pack(side="right", fill="y")
-    treeview.configure(yscrollcommand=sb.set)
+        # Set width for each column
+        treeview.column("Value", width=150)  # Adjust the value as needed
+        treeview.column("Occurred", width=150)  # Adjust the value as needed
 
-    clear_button = tk.Button(root, text="Clear kills", command=lambda: clear_treeview(treeview))
-    clear_button.pack(pady=5)
+        # Create a scrollbar for the treeview
+        sb = tk.Scrollbar(main_frame, command=treeview.yview)
+        sb.pack(side="right", fill="y")
+        treeview.configure(yscrollcommand=sb.set)
 
-    info_frame = tk.Frame(root, relief=tk.RAISED, borderwidth=1)
-    info_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+        # Create a button to clear kills
+        clear_button = tk.Button(root, text="Clear kills", command=lambda: clear_treeview(treeview))
+        clear_button.pack(pady=5)
 
-    dt_frame = tk.Frame(root, relief=tk.RAISED, borderwidth=1)
-    dt_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+        # Create frames for additional information
+        info_frame = tk.Frame(root, relief=tk.RAISED, borderwidth=1)
+        info_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
 
-    counter_var = tk.IntVar()
-    counter_label = tk.Label(info_frame, text="Kills: ")
-    counter_label.pack(side=tk.LEFT, padx=5)
-    counter_box = tk.Label(info_frame, textvariable=counter_var)
-    counter_box.pack(side=tk.LEFT, padx=5)
+        dt_frame = tk.Frame(root, relief=tk.RAISED, borderwidth=1)
+        dt_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
 
-    dt_label = tk.Label(dt_frame, text="DT In: ")
-    dt_label.pack(side=tk.BOTTOM)
+        # Create labels for EVE time and downtime
+        counter_var = tk.IntVar()
+        counter_label = tk.Label(info_frame, text="Kills: ")
+        counter_label.pack(side=tk.LEFT, padx=5)
+        counter_box = tk.Label(info_frame, textvariable=counter_var)
+        counter_box.pack(side=tk.LEFT, padx=5)
 
-    time_label = tk.Label(info_frame, text="EVE Time: ")
-    time_label.pack(side=tk.BOTTOM)
+        dt_label = tk.Label(dt_frame, text="DT In: ")
+        dt_label.pack(side=tk.BOTTOM)
 
-    root.protocol(
-        "WM_DELETE_WINDOW", lambda: close_window(root)
-    )
+        time_label = tk.Label(info_frame, text="EVE Time: ")
+        time_label.pack(side=tk.BOTTOM)
 
+        # Define function to close window
+        root.protocol("WM_DELETE_WINDOW", lambda: close_window(root))
+
+        # Define URI for websocket
+        uri = "wss://zkillboard.com/websocket/"
+
+        # Bind double-click on treeview to open URL in browser
+        treeview.bind("<Double-1>", lambda event: open_url_in_browser(treeview))
+
+        # Create a frame for filter lists and update button
+        filter_update_frame = tk.Frame(root)
+        filter_update_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
+
+        # Create dropdown menu for filter lists
+        filter_frame = tk.Frame(filter_update_frame)
+        filter_frame.pack(side=tk.LEFT)
+
+        dropdown_menu = tk.Menubutton(filter_frame, text="Filter Lists", relief="raised")
+        dropdown_menu.pack(side=tk.LEFT, padx=5)
+
+        dropdown_menu.menu = tk.Menu(dropdown_menu, tearoff=0)
+        dropdown_menu["menu"] = dropdown_menu.menu
+
+        enabled_vars = []
+        for filter_item in settings["filter_lists"]:
+            enabled = tk.BooleanVar()
+            enabled.set(filter_item["enabled"])
+            enabled_vars.append(enabled)
+
+            dropdown_menu.menu.add_checkbutton(label=filter_item["file"], variable=enabled)
+
+        def toggle_dropdown(event=None):
+            if dropdown_menu.menu.winfo_ismapped():
+                dropdown_menu.menu.unpost()
+            else:
+                dropdown_menu.menu.post(dropdown_menu.winfo_rootx(), dropdown_menu.winfo_rooty() + dropdown_menu.winfo_height())
+
+        dropdown_menu.bind("<Button-1>", toggle_dropdown)
+
+        # Add a button to update settings
+        update_button = tk.Button(filter_update_frame, text="Update Settings", command=lambda: update_settings(settings, enabled_vars))
+        update_button.pack(side=tk.LEFT, padx=5)
+
+        # Run the Tkinter event loop
+        try:
+            await asyncio.gather(
+                connect_websocket(uri, treeview, counter_var, time_label, dt_label, settings["filter_lists"]),
+                run_tkinter_loop(root, treeview, time_label, dt_label),
+            )
+        except tk.TclError as e:
+            if "application has been destroyed" not in str(e):
+                raise
+    else:
+        uri = "wss://zkillboard.com/websocket/"
+        try:
+            await asyncio.gather(
+                connect_websocket(uri, None, None, None, None, settings["filter_lists"]),
+                run_background_tasks(settings),
+            )
+        except KeyboardInterrupt:
+            print("Exiting program due to keyboard interrupt.")
+            sys.exit(0)
+
+
+
+async def run_background_tasks(settings):
+    # Run background tasks here (e.g., WebSocket connection, etc.)
     uri = "wss://zkillboard.com/websocket/"
-
-    treeview.bind("<Double-1>", lambda event: open_url_in_browser(treeview))
-
-    try:
-        await asyncio.gather(
-            connect_websocket(uri, treeview, counter_var, time_label, dt_label, filter_lists),
-            run_tkinter_loop(root, treeview, time_label, dt_label),
-        )
-    except tk.TclError as e:
-        if "application has been destroyed" not in str(e):
-            raise
-
-
+    while True:
+        try:
+            async with websockets.connect(uri) as websocket:
+                # Run the WebSocket connection task
+                await subscribe_to_killstream(websocket, None, None, None, None, uri, settings["filter_lists"])
+        except websockets.exceptions.ConnectionClosed as e:
+            print(f"WebSocket connection closed: {e} at: {datetime.now(timezone.utc)}")
+            await asyncio.sleep(5)
 
 def open_url_in_browser(treeview):
     selected_item = treeview.selection()[0]
@@ -353,7 +429,16 @@ def close_window(root):
     sys.exit(0)
 
 async def main():
-    await start_gui()
+    # Parse the command-line arguments
+    args = parser.parse_args()
+
+    # Load settings from JSON file
+    settings = load_settings()
+
+    # Check if GUI should be started based on command-line arguments
+    with_gui = not args.no_gui
+
+    await start_gui(settings, with_gui)
 
 if __name__ == "__main__":
     asyncio.run(main())
