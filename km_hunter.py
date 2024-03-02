@@ -179,7 +179,7 @@ async def process_killmail(killmail_data, treeview, counter_var, time_label, dt_
                         if filter_id == id:
                             try:
                                 if filter_item.get("webhook", False):
-                                    await send_discord_webhook(f"Kill found! {kill_details} \nurl: {url}")
+                                    await send_discord_webhook(f"Kill found! {kill_details}")
                             except TypeError as e:
                                 print("Error sending webhook" + str(e))
                             

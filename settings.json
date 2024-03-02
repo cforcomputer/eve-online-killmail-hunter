@@ -1,4 +1,9 @@
 {
+    "dropped_value_enabled": false,
+    "time_threshold_enabled": true,
+    "time_threshold": 120000,
+    "dropped_value": 100000000,
+    "audio_alerts_enabled": true,
     "filter_lists": [
         {
             "file": "officers.txt",
@@ -14,7 +19,7 @@
             "webhook": false,
             "sound": "orange_alert.wav",
             "enabled": true,
-            "priority": true
+            "priority": false
         },
         {
             "file": "mordus.txt",
@@ -29,23 +34,16 @@
             "color": "blue",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
-            "priority": true
+            "enabled": false,
+            "priority": false
         },
         {
             "file": "abyssals.txt",
             "color": "red",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
-            "priority": true
+            "enabled": false,
+            "priority": false
         }
-    ],
-    "settings": {
-        "dropped_value_enabled": false,
-        "time_threshold_enabled": false,
-        "time_threshold": 120001,
-        "dropped_value": 100000001,
-        "audio_alerts_enabled": false
-    }
+    ]
 }
