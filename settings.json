@@ -1,8 +1,8 @@
 {
-    "dropped_value_enabled": false,
+    "dropped_value_enabled": true,
     "time_threshold_enabled": true,
-    "time_threshold": 120000,
-    "dropped_value": 100000000,
+    "time_threshold": 12001,
+    "dropped_value": 10000000,
     "audio_alerts_enabled": true,
     "filter_lists": [
         {
@@ -10,32 +10,32 @@
             "color": "purple",
             "webhook": true,
             "sound": "alert.wav",
-            "enabled": true,
-            "priority": false
+            "enabled": false,
+            "ignore_dropped_value": true
         },
         {
             "file": "belt_hunters.txt",
             "color": "orange",
             "webhook": false,
             "sound": "orange_alert.wav",
-            "enabled": true,
-            "priority": false
+            "enabled": false,
+            "ignore_dropped_value": true
         },
         {
             "file": "mordus.txt",
             "color": "orange",
             "webhook": true,
             "sound": "orange_alert.wav",
-            "enabled": true,
-            "priority": false
+            "enabled": false,
+            "ignore_dropped_value": true
         },
         {
             "file": "blueprints.txt",
             "color": "blue",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": false,
-            "priority": false
+            "enabled": true,
+            "ignore_dropped_value": true
         },
         {
             "file": "abyssals.txt",
@@ -43,7 +43,7 @@
             "webhook": false,
             "sound": "blue_alert.wav",
             "enabled": false,
-            "priority": false
+            "ignore_dropped_value": true
         }
     ]
 }

@@ -4,7 +4,7 @@
 a = Analysis(
     ['km_hunter.py'],
     pathex=[],
-    binaries=[('C:\\Users\\eeeww\\miniconda3\\python.exe', '.')],
+    binaries=[],
     datas=[],
     hiddenimports=[],
     hookspath=[],
