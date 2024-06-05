@@ -11,7 +11,8 @@
             "webhook": true,
             "sound": "alert.wav",
             "enabled": false,
-            "ignore_dropped_value": true
+            "ignore_dropped_value": true,
+            "list_check_id": "attacker_ship_type"
         },
         {
             "file": "belt_hunters.txt",
@@ -19,7 +20,8 @@
             "webhook": false,
             "sound": "orange_alert.wav",
             "enabled": false,
-            "ignore_dropped_value": true
+            "ignore_dropped_value": true,
+            "list_check_id": "attacker_ship_type" 
         },
         {
             "file": "mordus.txt",
@@ -27,7 +29,8 @@
             "webhook": true,
             "sound": "orange_alert.wav",
             "enabled": false,
-            "ignore_dropped_value": true
+            "ignore_dropped_value": true,
+            "list_check_id": "attacker_ship_type" 
         },
         {
             "file": "blueprints.txt",
@@ -35,15 +38,17 @@
             "webhook": false,
             "sound": "blue_alert.wav",
             "enabled": true,
-            "ignore_dropped_value": true
+            "ignore_dropped_value": true,
+            "list_check_id": "dropped_item" 
         },
         {
             "file": "abyssals.txt",
             "color": "red",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": false,
-            "ignore_dropped_value": true
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "dropped_item"
         }
     ]
 }

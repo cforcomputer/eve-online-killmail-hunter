@@ -43,6 +43,7 @@ DEFAULT_SETTINGS = {
     "time_threshold": 1200,
     "dropped_value": 100000000,
     "audio_alerts_enabled": True,  # New setting for audio alerts
+    "list_check_id": "attacker_ship_type",
 }
 
 
@@ -149,6 +150,17 @@ async def process_killmail(
                     attacker_ship_type_ids.append(attacker["ship_type_id"])
                 except:
                     pass
+        # Gather dropped item ids
+        dropped_item_ids = []
+        if killmail_data["victim"]["items"]:
+            # for victim in killmail_data["victim"]:
+            for item in killmail_data["victim"]["items"]:
+                try:
+                    dropped_item_ids.append(item["item_type_id"])
+                except:
+                    pass
+                # print("Debug items:" + str(item) + " appended")
+        # print("Final dropped item id list: " + str(dropped_item_ids))
         # --------------------------
         formatted_dropped_value = format_dropped_value(dropped_value)
         killmail_time = datetime.strptime(
@@ -222,8 +234,18 @@ async def process_killmail(
                 # print(filter_item)
                 file_id_list = load_list_from_file(filter_item.get("file"))
 
+                list_check_id = filter_item.get("list_check_id")
+
+                # Retrieve the filter type from the settings.json
+                if list_check_id == "attacker_ship_type":
+                    id_list_to_check = attacker_ship_type_ids
+                elif list_check_id == "dropped_item":
+                    id_list_to_check = dropped_item_ids
+                else:
+                    continue  # if invalid, skip the filter
+
                 for filter_id in file_id_list:
-                    for id in attacker_ship_type_ids:
+                    for id in id_list_to_check:
                         if filter_id == id:
                             try:
                                 if filter_item.get("webhook", False):
@@ -241,6 +263,7 @@ async def process_killmail(
 
                             # await asyncio.sleep(0.6)
                             print("Checks passed. Adding kill to km-viewer")
+                            print("Applying label color" + str(label_color))
                             treeview.insert(
                                 "",
                                 "end",
@@ -251,6 +274,8 @@ async def process_killmail(
                                 ),
                                 tags=label_color,
                             )
+                            break  # Exit loop after first match to avoid duplicate entries
+                            # TODO: Could add a counter to the treeview instead, showing the number of matches for that entry
 
         print(
             f"Filtered out: {killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value} {url}"
@@ -546,6 +571,7 @@ def load_settings():
             time_threshold = int(settings_data.get("time_threshold"))
             dropped_value = float(settings_data.get("dropped_value"))
             audio_alerts_enabled = settings_data.get("audio_alerts_enabled", False)
+
             if (
                 filter_lists
                 and dropped_value_enabled

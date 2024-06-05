@@ -28,11 +28,11 @@ To run in headless mode (No GUI window) start the program from command line usin
 
 #### What happens when each setting condition is set to true:
 
-`"time_threshold_enabled": true` = will **only** show you lossmails within the timeframe (seconds) as defined in `time_threshold`.
+`"time_threshold_enabled": true` = will **only** show you lossmails within the timeframe (seconds) as defined in **time_threshold**.
 
 `"time_threshold": 12000` = default timeframe 200 minutes (kills occurring within 3.33 hours).
 
-`"dropped_value_enabled": true` = will only show ships with a dropped value in the shipwreck greater than the entered number as defined in `dropped_value`.
+`"dropped_value_enabled": true` = will only show ships with a dropped value in the shipwreck greater than the entered number as defined in **dropped_value**.
 
 `"dropped_value": 100000000` = default dropped value is 100,000,000 ISK.
 
@@ -42,11 +42,11 @@ To run in headless mode (No GUI window) start the program from command line usin
 
 `"ignore_dropped_value": true` = causes the filter to always ignore dropped value.
 
-`"officers"` = **always shows** ships that die to an officer NPC as defined in `officers.txt`. **ignores dropped item value**
+`"officers"` = **always shows** ships that die to an officer NPC as defined in officers.txt. **ignores dropped item value**
 
-`"abyssals"` = **always shows** ships that die with abyss items whose value is not calculated, as defined in `abyssals.txt`. **ignores dropped item value**
+`"abyssals"` = **always shows** ships that die with abyss items whose value is not calculated, as defined in abyssals.txt. **ignores dropped item value**
 
-`"blueprints"` = **always shows** ships that die with blueprints whose value is not calculated, as defined in `blueprints.txt`. **ignores dropped item value**
+`"blueprints"` = **always shows** ships that die with blueprints whose value is not calculated, as defined in blueprints.txt. **ignores dropped item value**
 
 `"mordus"` = **always shows** ships that die to mordus legion belt commander NPCs. **ignores dropped item value**
 
@@ -54,13 +54,16 @@ To run in headless mode (No GUI window) start the program from command line usin
 
 `"color": "red"` = background color for the match to display in the GUI.
 
-`"file": "filename.txt"` = location of the `filterlist.text` file.
+`"file": "filename.txt"` = location of the **filterlist.text** file.
 
-`"webhook": true` = when a match is found, send a message to your discord channel defined in `.env`
+`"webhook": true` = when a match is found, send a message to your discord channel defined in the **.env**
 
 `"enabled": true` = should the filter list be checked? true/false.
 
 `"sound": "filename.wav"` = plays your custom sound when a killmail in the specific filter list is found.
+
+`"list_check_id": ""` = 1. dropped_item or 2. attacker_ship_type, will check for a matching id in dropped items or in the attacker ship type.
+**TODO:** attacking_players, defender_corporation, attacker_corporation. Or change to string regex match and drop json search.
 
 #### Dynamic filter list loading:
 
