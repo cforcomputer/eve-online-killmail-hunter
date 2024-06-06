@@ -143,7 +143,7 @@ async def process_killmail(
         # and "npc" in killmail_data["zkb"] # TODO: Make this an option to filter on npc only
         # and killmail_data["zkb"]["npc"]
     ):
-        # killmail_data = r"{'attackers': [{'corporation_id': 1000134, 'damage_done': 14787, 'final_blow': False, 'security_status': 0, 'ship_type_id': 13609}, {'corporation_id': 1000162, 'damage_done': 0, 'final_blow': True, 'security_status': 0, 'ship_type_id': 13539}], 'killmail_id': 115846822, 'killmail_time': '2024-02-26T22:28:19Z', 'solar_system_id': 30002203, 'victim': {'alliance_id': 99012618, 'character_id': 92585977, 'corporation_id': 1670856481, 'damage_taken': 14787, 'items': [{'flag': 5, 'item_type_id': 60279, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 5, 'item_type_id': 60279, 'quantity_dropped': 5, 'singleton': 0}, {'flag': 27, 'item_type_id': 56306, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 13, 'item_type_id': 1405, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 93, 'item_type_id': 31718, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 11, 'item_type_id': 28576, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 28, 'item_type_id': 60279, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 94, 'item_type_id': 31754, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 19, 'item_type_id': 380, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 92, 'item_type_id': 31766, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 87, 'item_type_id': 10246, 'quantity_destroyed': 2, 'singleton': 0}, {'flag': 87, 'item_type_id': 10246, 'quantity_dropped': 2, 'singleton': 0}, {'flag': 12, 'item_type_id': 28576, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 27, 'item_type_id': 17912, 'quantity_dropped': 1, 'singleton': 0}, {'flag': 20, 'item_type_id': 12058, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 5, 'item_type_id': 2456, 'quantity_destroyed': 1, 'singleton': 0}, {'flag': 28, 'item_type_id': 17912, 'quantity_dropped': 1, 'singleton': 0}], 'position': {'x': -1184906903386.7654, 'y': -77016642186.46077, 'z': -547718785673.0664}, 'ship_type_id': 17478}, 'zkb': {'locationID': 40140327, 'hash': 'd7fe81868aeefcd5ed9738db33607f6575052b40', 'fittedValue': 84214064.17, 'droppedValue': 19790070.52, 'destroyedValue': 65793547.51, 'totalValue': 85583618.03, 'points': 1, 'npc': True, 'solo': False, 'awox': False, 'esi': 'https://esi.evetech.net/latest/killmails/115846822/d7fe81868aeefcd5ed9738db33607f6575052b40/', 'url': 'https://zkillboard.com/kill/115846822/'}}"
+        # killmail_data = r'{"attackers":[{"alliance_id":99011606,"character_id":2119099774,"corporation_id":98682653,"damage_done":8592,"final_blow":true,"security_status":-1.0,"ship_type_id":11999,"weapon_type_id":2897},{"alliance_id":99009927,"character_id":2119074886,"corporation_id":98457503,"damage_done":2523,"final_blow":false,"security_status":-10.0,"ship_type_id":35683,"weapon_type_id":35683}],"killmail_id":118434158,"killmail_time":"2024-06-06T07:23:54Z","solar_system_id":30002539,"victim":{"alliance_id":99003581,"character_id":2122282418,"corporation_id":98598862,"damage_taken":11115,"faction_id":500011,"items":[{"flag":11,"item_type_id":22291,"quantity_destroyed":1,"singleton":0},{"flag":5,"item_type_id":8089,"quantity_dropped":4,"singleton":0},{"flag":5,"item_type_id":27453,"quantity_destroyed":360,"singleton":0},{"flag":5,"item_type_id":27441,"quantity_dropped":335,"singleton":0},{"flag":93,"item_type_id":31360,"quantity_destroyed":1,"singleton":0},{"flag":21,"item_type_id":35659,"quantity_destroyed":1,"singleton":0},{"flag":27,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":30,"item_type_id":209,"quantity_dropped":36,"singleton":0},{"flag":5,"item_type_id":27435,"quantity_dropped":425,"singleton":0},{"flag":28,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":31,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":20,"item_type_id":8419,"quantity_dropped":1,"singleton":0},{"flag":29,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":19,"item_type_id":8419,"quantity_destroyed":1,"singleton":0},{"flag":12,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":23,"item_type_id":54291,"quantity_dropped":1,"singleton":0},{"flag":30,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":27,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":92,"item_type_id":31718,"quantity_destroyed":1,"singleton":0},{"flag":28,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":5,"item_type_id":209,"quantity_dropped":3715,"singleton":0},{"flag":5,"item_type_id":27447,"quantity_destroyed":180,"singleton":0},{"flag":13,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":31,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":22,"item_type_id":54291,"quantity_destroyed":1,"singleton":0},{"flag":29,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":14,"item_type_id":8225,"quantity_dropped":1,"singleton":0},{"flag":94,"item_type_id":31790,"quantity_destroyed":1,"singleton":0}],"position":{"x":557047590541.1138,"y":-48686415427.03836,"z":1300842933956.2546},"ship_type_id":621}}'
         dropped_value = killmail_data["zkb"]["droppedValue"]
         url = killmail_data["zkb"]["url"]
         # Gather attacker ids ------
@@ -153,7 +153,16 @@ async def process_killmail(
                 try:
                     attacker_ship_type_ids.append(attacker["ship_type_id"])
                 except:
+                    # debug
+                    print("------------------------------------")
+                    print("killmail data:" + str(killmail_data))
+                    print(
+                        "killmail data[attackers]: " + str(killmail_data["attackers"])
+                    )
+                    print("attacker: " + str(attacker))
+                    print("attacker ship type ids: " + str(attacker_ship_type_ids))
                     print("attacker ids not found")  # debug
+                    print("------------------------------------")
                     pass
         # Gather dropped item ids
         dropped_item_ids = []
@@ -411,22 +420,6 @@ async def start_gui(settings, with_gui=True):
         root.title("KM Hunter 1.2")
         root.pack_propagate(False)
 
-        # Assuming root is the Tkinter root window
-        # style = ttk.Style(root)
-
-        # # Configure style settings for each tag
-        # style.configure("purple", background="purple")
-        # style.configure("orange", background="orange")
-        # style.configure("blue", background="blue")
-        # style.configure("red", background="red")
-
-        style = ttk.Style(root)
-        style.configure("purple.TLabel", background="purple")
-        style.configure("orange.TLabel", background="orange")
-        style.configure("blue.TLabel", background="blue")
-        style.configure("red.TLabel", background="red")
-        style.configure("grey.TLabel", background="grey")
-
         # Create the main frame
         main_frame = tk.Frame(root)
         main_frame.pack(fill="both", expand=True)
@@ -448,6 +441,13 @@ async def start_gui(settings, with_gui=True):
         sb = tk.Scrollbar(main_frame, command=treeview.yview)
         sb.pack(side="right", fill="y")
         treeview.configure(yscrollcommand=sb.set)
+        treeview.tag_configure("purple.TLabel", background="purple", foreground="white")
+        treeview.tag_configure("orange.TLabel", background="orange", foreground="black")
+        treeview.tag_configure(
+            "blue.TLabel", background="#ADD8E6", foreground="black"
+        )  # Light blue background
+        treeview.tag_configure("red.TLabel", background="red", foreground="white")
+        treeview.tag_configure("grey.TLabel", background="grey", foreground="black")
 
         # Create a button to clear kills
         clear_button = tk.Button(
