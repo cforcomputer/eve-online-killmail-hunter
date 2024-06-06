@@ -80,7 +80,8 @@ To run in headless mode (No GUI window) start the program from command line usin
 
 #### Dynamic filter list loading:
 
-You can add your own filter list by
+You can add your own filter list by creating a new `yourname.text` file in the root repository.
+Then add the file in the same format as the other filter lists in `settings.json`.
 
 # Development Installation
 
