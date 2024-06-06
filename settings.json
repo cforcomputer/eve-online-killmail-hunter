@@ -49,6 +49,69 @@
             "enabled": true,
             "ignore_dropped_value": true,
             "list_check_id": "dropped_item"
+        },
+        {
+            "file": "characters.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "character_loss"
+        },
+        {
+            "file": "system.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "system"
+        },
+        {
+            "file": "corp_loss.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "corporation_loss"
+        },
+        {
+            "file": "alliance_loss.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "alliance_loss"
+        },
+        {
+            "file": "attacker_character.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "attacker_character"
+        },
+        {
+            "file": "attacker_corp.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "attacker_corp"
+        },
+        {
+            "file": "attacker_alliance.txt",
+            "color": "green",
+            "webhook": false,
+            "sound": "blue_alert.wav",
+            "enabled": true,
+            "ignore_dropped_value": true,
+            "list_check_id": "attacker_alliance"
         }
     ]
 }

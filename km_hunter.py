@@ -146,35 +146,51 @@ async def process_killmail(
         # killmail_data = r'{"attackers":[{"alliance_id":99011606,"character_id":2119099774,"corporation_id":98682653,"damage_done":8592,"final_blow":true,"security_status":-1.0,"ship_type_id":11999,"weapon_type_id":2897},{"alliance_id":99009927,"character_id":2119074886,"corporation_id":98457503,"damage_done":2523,"final_blow":false,"security_status":-10.0,"ship_type_id":35683,"weapon_type_id":35683}],"killmail_id":118434158,"killmail_time":"2024-06-06T07:23:54Z","solar_system_id":30002539,"victim":{"alliance_id":99003581,"character_id":2122282418,"corporation_id":98598862,"damage_taken":11115,"faction_id":500011,"items":[{"flag":11,"item_type_id":22291,"quantity_destroyed":1,"singleton":0},{"flag":5,"item_type_id":8089,"quantity_dropped":4,"singleton":0},{"flag":5,"item_type_id":27453,"quantity_destroyed":360,"singleton":0},{"flag":5,"item_type_id":27441,"quantity_dropped":335,"singleton":0},{"flag":93,"item_type_id":31360,"quantity_destroyed":1,"singleton":0},{"flag":21,"item_type_id":35659,"quantity_destroyed":1,"singleton":0},{"flag":27,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":30,"item_type_id":209,"quantity_dropped":36,"singleton":0},{"flag":5,"item_type_id":27435,"quantity_dropped":425,"singleton":0},{"flag":28,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":31,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":20,"item_type_id":8419,"quantity_dropped":1,"singleton":0},{"flag":29,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":19,"item_type_id":8419,"quantity_destroyed":1,"singleton":0},{"flag":12,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":23,"item_type_id":54291,"quantity_dropped":1,"singleton":0},{"flag":30,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":27,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":92,"item_type_id":31718,"quantity_destroyed":1,"singleton":0},{"flag":28,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":5,"item_type_id":209,"quantity_dropped":3715,"singleton":0},{"flag":5,"item_type_id":27447,"quantity_destroyed":180,"singleton":0},{"flag":13,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":31,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":22,"item_type_id":54291,"quantity_destroyed":1,"singleton":0},{"flag":29,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":14,"item_type_id":8225,"quantity_dropped":1,"singleton":0},{"flag":94,"item_type_id":31790,"quantity_destroyed":1,"singleton":0}],"position":{"x":557047590541.1138,"y":-48686415427.03836,"z":1300842933956.2546},"ship_type_id":621}}'
         dropped_value = killmail_data["zkb"]["droppedValue"]
         url = killmail_data["zkb"]["url"]
-        # Gather attacker ids ------
+
+        # Gather attacker ids, corp ids
         attacker_ship_type_ids = []
+        attacker_character_ids = []
+        attacker_corp_ids = []
+        attacker_alliance_ids = []
+
         if killmail_data["attackers"]:
             for attacker in killmail_data["attackers"]:
-                try:
-                    attacker_ship_type_ids.append(attacker["ship_type_id"])
-                except:
-                    # debug
-                    print("------------------------------------")
-                    print("killmail data:" + str(killmail_data))
-                    print(
-                        "killmail data[attackers]: " + str(killmail_data["attackers"])
-                    )
-                    print("attacker: " + str(attacker))
-                    print("attacker ship type ids: " + str(attacker_ship_type_ids))
-                    print("attacker ids not found")  # debug
-                    print("------------------------------------")
-                    pass
-        # Gather dropped item ids
+                # Get ship type ids for attackers:
+                ship_type_id = attacker.get("ship_type_id")
+                if ship_type_id is not None:
+                    attacker_ship_type_ids.append(ship_type_id)
+
+                # Get corporation ids for attackers:
+                corp_id = attacker.get("corporation_id")
+                if corp_id is not None:
+                    attacker_corp_ids.append(corp_id)
+
+                # Get player ids for attackers:
+                character_id = attacker.get("character_id")
+                if character_id is not None:
+                    attacker_character_ids.append(character_id)
+
+                # Get attacker alliance ids
+                alliance_id = attacker.get("alliance_id")
+                if alliance_id is not None:
+                    attacker_alliance_ids.append(alliance_id)
+        # Gather dropped item ids, corp id
+        # @NOTE: solo ids must be wrapped in list or websocket cannot iterate on int error
         dropped_item_ids = []
+        alliance_loss_id = [killmail_data["victim"].get("alliance_id", -1)]
+        corp_loss_id = [killmail_data["victim"].get("corporation_id", -1)]
+        solar_system_id = [killmail_data.get("solar_system_id", -1)]
+        character_loss_id = [killmail_data["victim"].get("character_id", -1)]
+
         if killmail_data["victim"]["items"]:
             # for victim in killmail_data["victim"]:
             for item in killmail_data["victim"]["items"]:
                 try:
                     dropped_item_ids.append(item["item_type_id"])
-                except:
-                    print("dropped item ids not found")  # debug
+                except Exception as e:
+                    print("dropped item ids not found" + str(e))  # debug
                     pass
-                # print("Debug items:" + str(item) + " appended")
+
         # print("Final dropped item id list: " + str(dropped_item_ids))
         # --------------------------
         formatted_dropped_value = format_dropped_value(dropped_value)
@@ -252,18 +268,35 @@ async def process_killmail(
                 list_check_id = filter_item.get("list_check_id")
 
                 # Retrieve the filter type from the settings.json
+                print("Retrieving comparison lists")  # debug
                 if list_check_id == "attacker_ship_type":
                     id_list_to_check = attacker_ship_type_ids
                 elif list_check_id == "dropped_item":
                     id_list_to_check = dropped_item_ids
+                elif list_check_id == "system":
+                    id_list_to_check = solar_system_id
+                elif list_check_id == "attacker_corp":
+                    id_list_to_check = attacker_corp_ids
+                elif list_check_id == "attacker_alliance":
+                    id_list_to_check = attacker_alliance_ids
+                elif list_check_id == "attacker_character":
+                    id_list_to_check = attacker_character_ids
+                elif list_check_id == "character_loss":
+                    id_list_to_check = character_loss_id
+                elif list_check_id == "corporation_loss":
+                    id_list_to_check = corp_loss_id
+                elif list_check_id == "alliance_loss":
+                    id_list_to_check = alliance_loss_id
                 else:
                     print("Filter skipped")
                     continue  # if invalid, skip the filter
 
+                print("Gathering ids from id_list_to_check")  # debug
                 match_found = False
                 for filter_id in file_id_list:
                     if match_found:
                         break
+
                     for id in id_list_to_check:
                         if filter_id == id:
 
@@ -316,6 +349,7 @@ def load_list_from_file(filename):
         with open(filename, "r") as file:
             return [int(line.strip()) for line in file.readlines()]
     except FileNotFoundError:
+        print("File not found")
         return []
 
 
@@ -379,7 +413,9 @@ async def connect_websocket(
                     filter_lists,
                 )
         except Exception as e:
-            print(f"WebSocket connection closed: {e}")
+            print(
+                f"WebSocket connection closed (connect_websocket - await subscribe to killstream): {e}"
+            )
             await asyncio.sleep(5)
 
 
@@ -444,10 +480,13 @@ async def start_gui(settings, with_gui=True):
         treeview.tag_configure("purple.TLabel", background="purple", foreground="white")
         treeview.tag_configure("orange.TLabel", background="orange", foreground="black")
         treeview.tag_configure(
-            "blue.TLabel", background="#ADD8E6", foreground="black"
+            "blue.TLabel", background="light blue", foreground="black"
         )  # Light blue background
         treeview.tag_configure("red.TLabel", background="red", foreground="white")
         treeview.tag_configure("grey.TLabel", background="grey", foreground="black")
+        treeview.tag_configure(
+            "green.TLabel", background="light green", foreground="black"
+        )
 
         # Create a button to clear kills
         clear_button = tk.Button(

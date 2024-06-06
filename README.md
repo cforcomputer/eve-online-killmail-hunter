@@ -63,7 +63,20 @@ To run in headless mode (No GUI window) start the program from command line usin
 `"sound": "filename.wav"` = plays your custom sound when a killmail in the specific filter list is found.
 
 `"list_check_id": ""` = 1. dropped_item or 2. attacker_ship_type, will check for a matching id in dropped items or in the attacker ship type.
-**TODO:** attacking_players, defender_corporation, attacker_corporation. Or change to string regex match and drop json search.
+
+![KM-Hunter filter list preview](images/filter-list-example.png "Filter list example preview")
+
+#### Types of Lists
+
+- attacker_ship_type = matches for specific attacker ship types
+- dropped_item = matches for specific dropped items
+- character_loss = lossmails of a specific character
+- system = searches for lossmails in a specific system
+- corporation_loss = lossmails belonging to specific corporation
+- alliance_loss = losses belonging to specific alliance
+- attacker_character = kills carried out by a specific character
+- attacker_corp = kills carried out by specific attacker corp
+- attacker_alliance = kills carried out by specific alliance
 
 #### Dynamic filter list loading:
 
