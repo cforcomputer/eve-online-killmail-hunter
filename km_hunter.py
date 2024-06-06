@@ -9,12 +9,14 @@ import tkinter as tk
 from tkinter import ttk
 import websockets
 import webbrowser
-import simpleaudio
 import sys
 import os
 import requests
 from dotenv import load_dotenv
 import argparse
+from pygame import mixer, time
+
+# import pdb # debug
 
 # Define the command-line arguments
 parser = argparse.ArgumentParser(description="NPC Hunter")
@@ -111,17 +113,28 @@ def open_url(url):
 
 # Function to play alert sound
 def play_alert_sound(sound_file):
+    print("playing alert sound")
     if sound_file:
         try:
-            wave_obj = simpleaudio.WaveObject.from_wave_file(sound_file)
-            play_obj = wave_obj.play()
-            play_obj.wait_done()
+            mixer.init()
+            mixer.music.load(sound_file)
+            mixer.music.play()
+
+            # Loop to keep the program running until the sound is done playing
+            while mixer.music.get_busy():
+                time.Clock().tick(10)
         except Exception as e:
             print(f"Error playing alert sound: {e}")
 
 
 async def process_killmail(
-    killmail_data, treeview, counter_var, time_label, dt_label, filter_lists, settings
+    killmail_data,
+    treeview,
+    counter_var,
+    time_label,
+    dt_label,
+    filter_lists,
+    settings,
 ):
     # Assigns settings.json values
     max_time_threshold = settings.get("time_threshold", 1200)  #
@@ -268,7 +281,7 @@ async def process_killmail(
                 list_check_id = filter_item.get("list_check_id")
 
                 # Retrieve the filter type from the settings.json
-                print("Retrieving comparison lists")  # debug
+                # print("Retrieving comparison lists")  # debug
                 if list_check_id == "attacker_ship_type":
                     id_list_to_check = attacker_ship_type_ids
                 elif list_check_id == "dropped_item":
@@ -288,10 +301,10 @@ async def process_killmail(
                 elif list_check_id == "alliance_loss":
                     id_list_to_check = alliance_loss_id
                 else:
-                    print("Filter skipped")
+                    print("Filter skipped, invalid")
                     continue  # if invalid, skip the filter
 
-                print("Gathering ids from id_list_to_check")  # debug
+                # print("Gathering ids from id_list_to_check")  # debug
                 match_found = False
                 for filter_id in file_id_list:
                     if match_found:
@@ -452,6 +465,7 @@ async def start_gui(settings, with_gui=True):
     if with_gui:
         # Create the root window
         root = tk.Tk()
+        root.iconbitmap("logo.ico")
         root.minsize(280, 300)
         root.title("KM Hunter 1.2")
         root.pack_propagate(False)
@@ -676,3 +690,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# Debug, wrap entire program in try statement
+# except Exception as e:
+#     pdb.post_mortem()

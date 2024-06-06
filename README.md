@@ -85,19 +85,16 @@ You can add your own filter list by
 # Development Installation
 
 1. Download the folder
-2. Install the latest version of python (I use bundled anaconda)
+2. Install the latest version of python (I use bundled anaconda). This was built with python 3.11.5, I have some errors with 3.12.
 3. Install the required python packages, along with [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-4. `simpleaudio`, `tkinter`, `websockets`, `webbrowser`
+4. `simpleaudio`, `tkinter`, `websockets`, `webbrowser`, `python-dotenv`
 5. Make sure that the following files are present in the same folder:
    1. alert.wav
    2. blue_alert.wav
    3. orange_alert.wav
-   4. abyssals.txt
-   5. blueprints.txt
-   6. belters.txt
-   7. mordus.txt
-   8. officers.txt
-   9. settings.json
+   4. settings.json
+   5. The filter.txt lists
+   6. The .env file
 6. adjust settings.json for personal preferences
 7. run `python km_hunter.py`
 
