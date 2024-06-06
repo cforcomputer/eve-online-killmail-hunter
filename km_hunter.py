@@ -1,3 +1,7 @@
+# @author cforcomputer
+# @version 1.2.0
+# Tested with python version 3.11.5, 3.12 crashes
+
 import asyncio
 import json
 from datetime import datetime, timezone
@@ -125,11 +129,11 @@ async def process_killmail(
     time_threshold_enabled = settings.get("time_threshold_enabled", True)  #
     dropped_value_enabled = settings.get("dropped_value_enabled", True)  #
     audio_alerts_enabled = settings.get("audio_alerts_enabled", True)  #
-    print("max_time_threshold: " + str(max_time_threshold))
-    print("max_dropped_value: " + str(max_dropped_value))
-    print("time_threshhold_enabled: " + str(time_threshold_enabled))
-    print("dropped_value_enabled: " + str(dropped_value_enabled))
-    print("audio_alerts_enabled: " + str(audio_alerts_enabled))
+    # print("max_time_threshold: " + str(max_time_threshold))
+    # print("max_dropped_value: " + str(max_dropped_value))
+    # print("time_threshhold_enabled: " + str(time_threshold_enabled))
+    # print("dropped_value_enabled: " + str(dropped_value_enabled))
+    # print("audio_alerts_enabled: " + str(audio_alerts_enabled))
 
     label_color = "grey"  # Initialize label color
 
@@ -149,6 +153,7 @@ async def process_killmail(
                 try:
                     attacker_ship_type_ids.append(attacker["ship_type_id"])
                 except:
+                    print("attacker ids not found")  # debug
                     pass
         # Gather dropped item ids
         dropped_item_ids = []
@@ -158,6 +163,7 @@ async def process_killmail(
                 try:
                     dropped_item_ids.append(item["item_type_id"])
                 except:
+                    print("dropped item ids not found")  # debug
                     pass
                 # print("Debug items:" + str(item) + " appended")
         # print("Final dropped item id list: " + str(dropped_item_ids))
@@ -242,18 +248,15 @@ async def process_killmail(
                 elif list_check_id == "dropped_item":
                     id_list_to_check = dropped_item_ids
                 else:
+                    print("Filter skipped")
                     continue  # if invalid, skip the filter
 
+                match_found = False
                 for filter_id in file_id_list:
+                    if match_found:
+                        break
                     for id in id_list_to_check:
                         if filter_id == id:
-                            try:
-                                if filter_item.get("webhook", False):
-                                    await send_discord_webhook(
-                                        f"Kill found! {kill_details}"
-                                    )
-                            except TypeError as e:
-                                print("Error sending webhook" + str(e))
 
                             label_color = filter_item.get("color", "")
                             if audio_alerts_enabled and filter_item.get(
@@ -263,7 +266,7 @@ async def process_killmail(
 
                             # await asyncio.sleep(0.6)
                             print("Checks passed. Adding kill to km-viewer")
-                            print("Applying label color" + str(label_color))
+                            print("Applying label color " + str(label_color))
                             treeview.insert(
                                 "",
                                 "end",
@@ -272,8 +275,19 @@ async def process_killmail(
                                     time_difference,
                                     url,
                                 ),
-                                tags=label_color,
+                                tags=(label_color + ".TLabel",),
                             )
+
+                            try:
+                                if filter_item.get("webhook", False):
+                                    await send_discord_webhook(
+                                        f"Kill found! {kill_details}"
+                                    )
+                            except TypeError as e:
+                                print("Error sending webhook" + str(e))
+
+                            print("Match found, breaking loop")
+                            match_found = True
                             break  # Exit loop after first match to avoid duplicate entries
                             # TODO: Could add a counter to the treeview instead, showing the number of matches for that entry
 
@@ -398,13 +412,20 @@ async def start_gui(settings, with_gui=True):
         root.pack_propagate(False)
 
         # Assuming root is the Tkinter root window
-        style = ttk.Style(root)
+        # style = ttk.Style(root)
 
-        # Configure style settings for each tag
-        style.configure("purple", background="purple")
-        style.configure("orange", background="orange")
-        style.configure("blue", background="blue")
-        style.configure("red", background="red")
+        # # Configure style settings for each tag
+        # style.configure("purple", background="purple")
+        # style.configure("orange", background="orange")
+        # style.configure("blue", background="blue")
+        # style.configure("red", background="red")
+
+        style = ttk.Style(root)
+        style.configure("purple.TLabel", background="purple")
+        style.configure("orange.TLabel", background="orange")
+        style.configure("blue.TLabel", background="blue")
+        style.configure("red.TLabel", background="red")
+        style.configure("grey.TLabel", background="grey")
 
         # Create the main frame
         main_frame = tk.Frame(root)

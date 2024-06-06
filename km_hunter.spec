@@ -4,7 +4,7 @@
 a = Analysis(
     ['km_hunter.py'],
     pathex=[],
-    binaries=[],
+    binaries=[('C:\\Users\\p.obrien\\AppData\\Local\\anaconda3\\envs\\base\\python.exe', '.')],
     datas=[],
     hiddenimports=[],
     hookspath=[],

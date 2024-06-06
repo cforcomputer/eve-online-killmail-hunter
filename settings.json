@@ -21,16 +21,16 @@
             "sound": "orange_alert.wav",
             "enabled": false,
             "ignore_dropped_value": true,
-            "list_check_id": "attacker_ship_type" 
+            "list_check_id": "attacker_ship_type"
         },
         {
             "file": "mordus.txt",
             "color": "orange",
             "webhook": true,
             "sound": "orange_alert.wav",
-            "enabled": false,
+            "enabled": true,
             "ignore_dropped_value": true,
-            "list_check_id": "attacker_ship_type" 
+            "list_check_id": "attacker_ship_type"
         },
         {
             "file": "blueprints.txt",
@@ -39,7 +39,7 @@
             "sound": "blue_alert.wav",
             "enabled": true,
             "ignore_dropped_value": true,
-            "list_check_id": "dropped_item" 
+            "list_check_id": "dropped_item"
         },
         {
             "file": "abyssals.txt",
