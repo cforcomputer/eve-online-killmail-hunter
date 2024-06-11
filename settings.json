@@ -1,9 +1,11 @@
 {
     "dropped_value_enabled": true,
     "time_threshold_enabled": true,
-    "time_threshold": 12001,
-    "dropped_value": 10000000,
+    "time_threshold": 1200,
+    "dropped_value": 100000000000000,
     "audio_alerts_enabled": true,
+    "npc_only": false,
+    "solo": false,
     "filter_lists": [
         {
             "file": "officers.txt",
@@ -28,7 +30,7 @@
             "color": "orange",
             "webhook": true,
             "sound": "orange_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "attacker_ship_type"
         },
@@ -37,7 +39,7 @@
             "color": "blue",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "dropped_item"
         },
@@ -46,7 +48,7 @@
             "color": "red",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "dropped_item"
         },
@@ -55,7 +57,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "character_loss"
         },
@@ -64,7 +66,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "system"
         },
@@ -73,7 +75,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "corporation_loss"
         },
@@ -82,7 +84,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "alliance_loss"
         },
@@ -91,7 +93,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "attacker_character"
         },
@@ -100,7 +102,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "attacker_corp"
         },
@@ -109,7 +111,7 @@
             "color": "green",
             "webhook": false,
             "sound": "blue_alert.wav",
-            "enabled": true,
+            "enabled": false,
             "ignore_dropped_value": true,
             "list_check_id": "attacker_alliance"
         }

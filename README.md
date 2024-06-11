@@ -88,7 +88,7 @@ Then add the file in the same format as the other filter lists in `settings.json
 1. Download the folder
 2. Install the latest version of python (I use bundled anaconda). This was built with python 3.11.5, I have some errors with 3.12.
 3. Install the required python packages, along with [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-4. `simpleaudio`, `tkinter`, `websockets`, `webbrowser`, `python-dotenv`
+4. `pygame`, `tkinter`, `websockets`, `webbrowser`, `python-dotenv`
 5. Make sure that the following files are present in the same folder:
    1. alert.wav
    2. blue_alert.wav
