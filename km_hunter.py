@@ -152,20 +152,11 @@ async def process_killmail(
     audio_alerts_enabled = settings.get("audio_alerts_enabled", True)  #
     npc_only_enabled = settings.get("npc_only", True)
     solo_enabled = settings.get("solo", False)
-    # print("max_time_threshold: " + str(max_time_threshold))
-    # print("min_dropped_value: " + str(min_dropped_value))
-    # print("time_threshhold_enabled: " + str(time_threshold_enabled))
-    # print("dropped_value_enabled: " + str(dropped_value_enabled))
-    # print("audio_alerts_enabled: " + str(audio_alerts_enabled))
+    triangulation_check_enabled = settings.get("triangulation_check", True)
 
     label_color = "grey"  # Initialize label color
 
-    if (
-        "zkb"
-        in killmail_data
-        # and "npc" in killmail_data["zkb"] # TODO: Make this an option to filter on npc only
-        # and killmail_data["zkb"]["npc"]
-    ):
+    if "zkb" in killmail_data:
         # killmail_data = r'{"attackers":[{"alliance_id":99011606,"character_id":2119099774,"corporation_id":98682653,"damage_done":8592,"final_blow":true,"security_status":-1.0,"ship_type_id":11999,"weapon_type_id":2897},{"alliance_id":99009927,"character_id":2119074886,"corporation_id":98457503,"damage_done":2523,"final_blow":false,"security_status":-10.0,"ship_type_id":35683,"weapon_type_id":35683}],"killmail_id":118434158,"killmail_time":"2024-06-06T07:23:54Z","solar_system_id":30002539,"victim":{"alliance_id":99003581,"character_id":2122282418,"corporation_id":98598862,"damage_taken":11115,"faction_id":500011,"items":[{"flag":11,"item_type_id":22291,"quantity_destroyed":1,"singleton":0},{"flag":5,"item_type_id":8089,"quantity_dropped":4,"singleton":0},{"flag":5,"item_type_id":27453,"quantity_destroyed":360,"singleton":0},{"flag":5,"item_type_id":27441,"quantity_dropped":335,"singleton":0},{"flag":93,"item_type_id":31360,"quantity_destroyed":1,"singleton":0},{"flag":21,"item_type_id":35659,"quantity_destroyed":1,"singleton":0},{"flag":27,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":30,"item_type_id":209,"quantity_dropped":36,"singleton":0},{"flag":5,"item_type_id":27435,"quantity_dropped":425,"singleton":0},{"flag":28,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":31,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":20,"item_type_id":8419,"quantity_dropped":1,"singleton":0},{"flag":29,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":19,"item_type_id":8419,"quantity_destroyed":1,"singleton":0},{"flag":12,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":23,"item_type_id":54291,"quantity_dropped":1,"singleton":0},{"flag":30,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":27,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":92,"item_type_id":31718,"quantity_destroyed":1,"singleton":0},{"flag":28,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":5,"item_type_id":209,"quantity_dropped":3715,"singleton":0},{"flag":5,"item_type_id":27447,"quantity_destroyed":180,"singleton":0},{"flag":13,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":31,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":22,"item_type_id":54291,"quantity_destroyed":1,"singleton":0},{"flag":29,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":14,"item_type_id":8225,"quantity_dropped":1,"singleton":0},{"flag":94,"item_type_id":31790,"quantity_destroyed":1,"singleton":0}],"position":{"x":557047590541.1138,"y":-48686415427.03836,"z":1300842933956.2546},"ship_type_id":621}}'
         dropped_value = killmail_data["zkb"]["droppedValue"]
         url = killmail_data["zkb"]["url"]
@@ -268,30 +259,34 @@ async def process_killmail(
             # Generate kill details
             kill_details = f"{killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}\n{url}"
 
-            # Insert kill to viewer
-            print("Checks passed. Adding kill to km-viewer")
-
             try:
-                probability_count, celestial_list, killmail_position = (
+                probability_label, celestial_list, killmail_position = (
                     check_killmail_probability(killmail_data)
                 )
-                probability = probability_count
 
-                print("Probability calculated: " + str(probability))
+                print("Triangulation possible: " + str(probability_label))
             except Exception as e:
                 print("Probability calculation failed: " + str(e))
+                probability_label = "N"
+
+            # If triangulation check is not possible and triangulation check is enabled, do not show the kill in the feed.
+            if probability_label == "N" and triangulation_check_enabled == True:
+                return
 
             points, colors, titles = create_point_cloud(
                 killmail_position, id, celestial_list
             )
             export_point_cloud(points, colors, titles, id)
+
+            # Insert kill to viewer
+            print("Checks passed. Adding kill to km-viewer")
             treeview.insert(
                 "",
                 "end",
                 values=(
                     formatted_dropped_value,
                     time_difference,
-                    probability,
+                    probability_label,
                     url,
                     id,
                 ),
@@ -460,11 +455,9 @@ def check_killmail_probability(killmail_data):
 
     celestials = get_celestials(system_id)
 
-    count_within_bounds = sum(
-        1
-        for combo in combinations(celestials, 3)
-        if is_within_box(killmail_position, combo)
-    )
+    # Check if there are closest celestials and calculate count_within_bounds
+    closest_celestials = find_closest_celestials(killmail_position, celestials)
+    count_within_bounds = "Y" if closest_celestials else "N"
 
     return count_within_bounds, celestials, killmail_position
 
@@ -821,7 +814,7 @@ def find_closest_celestials(killmail_position, celestials):
 def create_lines_between_points(points, killmail_index):
     lines = vtk.vtkCellArray()
     line_colors = vtk.vtkUnsignedCharArray()
-    line_colors.SetNumberOfComponents(3)
+    line_colors.SetNumberOfComponents(4)  # RGBA colors
     line_colors.SetName("Colors")
 
     for i, p1 in enumerate(points):
@@ -833,15 +826,21 @@ def create_lines_between_points(points, killmail_index):
                 lines.InsertNextCell(line)
 
                 # Assign color based on whether the line connects to the killmail point or not
-                color = [0, 0, 0]  # Default color
+                color = [0, 0, 0, 255]  # Default color with full opacity
                 if i == killmail_index or j == killmail_index:
                     color = [
                         255,
                         0,
                         0,
-                    ]  # Red color for lines connected to killmail point
+                        255,
+                    ]  # Red color with full opacity for lines connected to killmail point
                 else:
-                    color = [0, 255, 0]  # Green color for other lines
+                    color = [
+                        0,
+                        255,
+                        0,
+                        100,
+                    ]  # Green color with half opacity for other lines
                 line_colors.InsertNextTypedTuple(color)
 
     return lines, line_colors
@@ -895,6 +894,58 @@ def create_lines_and_polygons_between_points(
         line_colors.InsertNextTuple([255, 0, 0])  # Red color for lines
 
     return lines, polygons, line_colors, polygon_colors
+
+
+def calculate_distance(point1, point2):
+    """
+    Calculate the distance between two points in AU using their coordinates.
+
+    Args:
+    point1 (tuple): Coordinates of the first point (x, y, z).
+    point2 (tuple): Coordinates of the second point (x, y, z).
+
+    Returns:
+    float: Distance between the two points in AU.
+    """
+    # Convert the coordinates to numpy arrays
+    point1 = np.array(point1)
+    point2 = np.array(point2)
+
+    # Calculate the Euclidean distance
+    distance = np.linalg.norm(point2 - point1)
+
+    return distance
+
+
+def find_closest_point(points, killmail_index):
+    """
+    Find the closest point to the killmail index and return the relative distance in AU.
+
+    Args:
+    points (list): List of coordinates of all points.
+    killmail_index (int): Index of the killmail point.
+
+    Returns:
+    tuple: Coordinates of the closest point.
+    float: Relative distance in AU from the closest point.
+    """
+    # Get the coordinates of the killmail point
+    killmail_point = points[killmail_index]
+
+    # Find the closest point
+    closest_point = None
+    min_distance = float("inf")
+    for i, point in enumerate(points):
+        if i != killmail_index:
+            distance = calculate_distance(killmail_point, point)
+            if distance < min_distance:
+                min_distance = distance
+                closest_point = point
+
+    # Calculate the relative distance in AU
+    relative_distance = min_distance
+
+    return closest_point, relative_distance
 
 
 def display_point_cloud_in_tkinter(killmail_id):
@@ -970,7 +1021,6 @@ def display_point_cloud_in_tkinter(killmail_id):
     actor.GetProperty().SetPointSize(3)  # Smaller size for blue points
 
     # Create lines and polygons between points and the killmail excluding the killmail point itself
-    # Create lines and polygons between points and the killmail excluding the killmail point itself
     lines, polygons, line_colors, polygon_colors = (
         create_lines_and_polygons_between_points(
             points, killmail_index, closest_celestials_indices
@@ -1023,6 +1073,9 @@ def display_point_cloud_in_tkinter(killmail_id):
     # Create an actor for all lines
     all_lines_actor = vtk.vtkActor()
     all_lines_actor.SetMapper(all_lines_mapper)
+    # Set line properties
+    all_lines_actor.GetProperty().SetLineStipplePattern(0xAAAA)  # Dotted line pattern
+    all_lines_actor.GetProperty().SetLineWidth(2)  # Adjust line width as needed
 
     # Create a red sphere to represent the killmail point
     killmail_sphere = vtk.vtkSphereSource()
@@ -1053,7 +1106,21 @@ def display_point_cloud_in_tkinter(killmail_id):
     yellow_actor.GetProperty().SetColor(1, 1, 0)  # Yellow color for the larger sphere
     yellow_actor.GetProperty().SetOpacity(0.3)  # Set opacity for the yellow sphere
 
+    # Create a vtkCornerAnnotation
+    corner_annotation = vtk.vtkCornerAnnotation()
+
+    # Set text for each corner
+    for i, celestial in enumerate(closest_celestials):
+        index = celestial["index"]
+        title_text = titles[index]
+        corner_annotation.SetText(i + 1, title_text)
+
+    # Set visibility for the annotation
+    corner_annotation.SetVisibility(1)  # Make the annotation visible
+
     # Add actors to the renderer
+    # Add the corner annotation to the renderer
+    renderer.AddActor2D(corner_annotation)
     renderer.AddActor(yellow_actor)
     renderer.AddActor(actor)
     renderer.AddActor(lines_actor)
@@ -1067,7 +1134,7 @@ def display_point_cloud_in_tkinter(killmail_id):
     # Set up the camera
     killmail_point = points[killmail_index]
     camera.SetPosition(
-        killmail_point[0], killmail_point[1], killmail_point[2] + 1000
+        killmail_point[0], killmail_point[1], killmail_point[2] + 999999
     )  # Set the initial camera position
     camera.SetFocalPoint(
         killmail_point
@@ -1127,28 +1194,9 @@ def load_settings():
             settings = {}
             settings_data = json.load(file)
 
-            filter_lists = settings_data.get("filter_lists", [])
-            dropped_value_enabled = settings_data.get("dropped_value_enabled", False)
-            time_threshold_enabled = settings_data.get("time_threshold_enabled", False)
-            time_threshold = int(settings_data.get("time_threshold"))
-            dropped_value = float(settings_data.get("dropped_value"))
-            audio_alerts_enabled = settings_data.get("audio_alerts_enabled", False)
-            # npc_only = settings_data.get("npc_only", False)
-            # solo = settings_data.get("solo", False)
+            settings = settings_data
+            print("settings refreshed successfully!")
 
-            if (
-                filter_lists
-                and dropped_value_enabled
-                and time_threshold_enabled
-                and time_threshold
-                and dropped_value
-                and audio_alerts_enabled
-            ):
-                settings = settings_data
-                print("settings refreshed successfully!")
-                # print(settings_data)
-            else:
-                raise Exception("Values not loaded correctly for json settings")
     except FileNotFoundError:
         print("Settings.json file not found or error parsing edited json")
         settings = {"filter_lists": [], "settings": DEFAULT_SETTINGS}
