@@ -16,10 +16,9 @@ from dotenv import load_dotenv
 import argparse
 from pygame import mixer, time
 from xml.etree import ElementTree as ET
-from itertools import combinations
 
 import numpy as np
-from scipy.spatial import Delaunay
+from scipy.spatial import Delaunay, distance
 
 import vtk
 
@@ -811,6 +810,23 @@ def find_closest_celestials(killmail_position, celestials):
     return [celestials[i] for i in vertices]
 
 
+def find_closest_point_from_km(killmail_position, celestials):
+    # Calculate distances to all celestials
+    distances = [
+        distance.euclidean(killmail_position, [c["x"], c["y"], c["z"]])
+        for c in celestials
+    ]
+
+    # Find the index of the closest celestial
+    closest_index = np.argmin(distances)
+
+    # Retrieve the closest celestial and its distance
+    closest_celestial = celestials[closest_index]
+    closest_distance = distances[closest_index]
+
+    return closest_celestial, closest_distance
+
+
 def create_lines_between_points(points, killmail_index):
     lines = vtk.vtkCellArray()
     line_colors = vtk.vtkUnsignedCharArray()
@@ -839,7 +855,7 @@ def create_lines_between_points(points, killmail_index):
                         0,
                         255,
                         0,
-                        100,
+                        80,
                     ]  # Green color with half opacity for other lines
                 line_colors.InsertNextTypedTuple(color)
 
@@ -874,7 +890,7 @@ def create_lines_and_polygons_between_points(
         for i, idx in enumerate(face):
             polygon.GetPointIds().SetId(i, idx)
         polygons.InsertNextCell(polygon)
-        polygon_colors.InsertNextTuple([255, 0, 0])  # Red color for polygons
+        polygon_colors.InsertNextTuple([255, 105, 180])  # Pink color for polygons
 
     # Create lines for each edge of the tetrahedron
     edges = [
@@ -891,61 +907,9 @@ def create_lines_and_polygons_between_points(
         line.GetPointIds().SetId(0, edge[0])
         line.GetPointIds().SetId(1, edge[1])
         lines.InsertNextCell(line)
-        line_colors.InsertNextTuple([255, 0, 0])  # Red color for lines
+        line_colors.InsertNextTuple([255, 255, 255])  # White color for lines
 
     return lines, polygons, line_colors, polygon_colors
-
-
-def calculate_distance(point1, point2):
-    """
-    Calculate the distance between two points in AU using their coordinates.
-
-    Args:
-    point1 (tuple): Coordinates of the first point (x, y, z).
-    point2 (tuple): Coordinates of the second point (x, y, z).
-
-    Returns:
-    float: Distance between the two points in AU.
-    """
-    # Convert the coordinates to numpy arrays
-    point1 = np.array(point1)
-    point2 = np.array(point2)
-
-    # Calculate the Euclidean distance
-    distance = np.linalg.norm(point2 - point1)
-
-    return distance
-
-
-def find_closest_point(points, killmail_index):
-    """
-    Find the closest point to the killmail index and return the relative distance in AU.
-
-    Args:
-    points (list): List of coordinates of all points.
-    killmail_index (int): Index of the killmail point.
-
-    Returns:
-    tuple: Coordinates of the closest point.
-    float: Relative distance in AU from the closest point.
-    """
-    # Get the coordinates of the killmail point
-    killmail_point = points[killmail_index]
-
-    # Find the closest point
-    closest_point = None
-    min_distance = float("inf")
-    for i, point in enumerate(points):
-        if i != killmail_index:
-            distance = calculate_distance(killmail_point, point)
-            if distance < min_distance:
-                min_distance = distance
-                closest_point = point
-
-    # Calculate the relative distance in AU
-    relative_distance = min_distance
-
-    return closest_point, relative_distance
 
 
 def display_point_cloud_in_tkinter(killmail_id):
@@ -953,6 +917,8 @@ def display_point_cloud_in_tkinter(killmail_id):
     points, colors, titles = load_point_cloud_from_file(killmail_id)
     if points is None or colors is None or titles is None:
         return  # Return if data loading fails
+
+    print(titles)
 
     # Find the index of the killmail position
     killmail_index = None
@@ -976,11 +942,29 @@ def display_point_cloud_in_tkinter(killmail_id):
 
     closest_celestials = find_closest_celestials(points[killmail_index], celestials)
     if closest_celestials is None:
-        print("No closest celestials found.")
+        print("Tetrahedron indices not found.")
         return
 
     closest_celestials_indices = [c["index"] for c in closest_celestials]
-    print(f"Closest celestials indices: {closest_celestials_indices}")
+    print(f"Tetrahedron indices: {closest_celestials_indices}")
+
+    closest_celestial, closest_distance = find_closest_point_from_km(
+        points[killmail_index], celestials
+    )
+    if closest_celestial is None:
+        print("No closest celestial found.")
+        return
+
+    # index = celestial["index"]
+    # title_text = titles[index]
+    closest_celestial_index = closest_celestial["index"]
+    closest_celestial_title = titles[closest_celestial_index]
+    # @NOTE: The closest celestial title is often none when using the fuzzworks api
+    # if closest_celestial_title is None:
+    #     closest_celestial_title = "No name"
+    print(f"Closest celestial index: {closest_celestial_index}")
+    print(f"Closest celestial title: {closest_celestial_title}")
+    print(f"Distance to closest celestial: {closest_distance}")
 
     # Create a VTK render window
     render_window = vtk.vtkRenderWindow()
@@ -1074,8 +1058,9 @@ def display_point_cloud_in_tkinter(killmail_id):
     all_lines_actor = vtk.vtkActor()
     all_lines_actor.SetMapper(all_lines_mapper)
     # Set line properties
+    all_lines_actor.GetProperty().SetOpacity(0.65)
     all_lines_actor.GetProperty().SetLineStipplePattern(0xAAAA)  # Dotted line pattern
-    all_lines_actor.GetProperty().SetLineWidth(2)  # Adjust line width as needed
+    all_lines_actor.GetProperty().SetLineWidth(1)  # Adjust line width as needed
 
     # Create a red sphere to represent the killmail point
     killmail_sphere = vtk.vtkSphereSource()
@@ -1108,21 +1093,51 @@ def display_point_cloud_in_tkinter(killmail_id):
 
     # Create a vtkCornerAnnotation
     corner_annotation = vtk.vtkCornerAnnotation()
+    corner_annotation.GetTextProperty().SetColor(1, 1, 1)  # White color for text
 
-    # Set text for each corner
+    # Prepare the combined text for the annotation
+    annotation_text = f"Closest celestial: {closest_celestial_title}, Distance: {closest_distance:.2f}\n"
+
+    # Add the titles of the closest celestials
     for i, celestial in enumerate(closest_celestials):
         index = celestial["index"]
-        title_text = titles[index]
-        corner_annotation.SetText(i + 1, title_text)
+        title_text = titles[index] if titles[index] is not None else "Unknown"
+        annotation_text += f"{i + 1}. {title_text}\n"
+
+    print("Annotation text: " + str(annotation_text))
+    # Set the combined text for the annotation
+    corner_annotation.SetText(2, annotation_text)
 
     # Set visibility for the annotation
     corner_annotation.SetVisibility(1)  # Make the annotation visible
+
+    # Create a green sphere to represent the closest celestial point
+    closest_celestial_sphere = vtk.vtkSphereSource()
+    closest_celestial_sphere.SetCenter(points[closest_celestial_index])
+    closest_celestial_sphere.SetRadius(
+        10000000
+    )  # Larger radius for the closest celestial sphere
+
+    # Create a mapper for the green sphere
+    closest_celestial_mapper = vtk.vtkPolyDataMapper()
+    closest_celestial_mapper.SetInputConnection(
+        closest_celestial_sphere.GetOutputPort()
+    )
+
+    # Create an actor for the green sphere
+    closest_celestial_actor = vtk.vtkActor()
+    closest_celestial_actor.SetMapper(closest_celestial_mapper)
+    closest_celestial_actor.GetProperty().SetColor(
+        0, 1, 0
+    )  # Green color for the closest celestial point
+    closest_celestial_actor.GetProperty().SetOpacity(0.70)
 
     # Add actors to the renderer
     # Add the corner annotation to the renderer
     renderer.AddActor2D(corner_annotation)
     renderer.AddActor(yellow_actor)
     renderer.AddActor(actor)
+    renderer.AddActor(closest_celestial_actor)
     renderer.AddActor(lines_actor)
     renderer.AddActor(polygons_actor)  # Add polygons actor to the renderer
     renderer.AddActor(all_lines_actor)  # Add all lines actor to the renderer
@@ -1134,7 +1149,7 @@ def display_point_cloud_in_tkinter(killmail_id):
     # Set up the camera
     killmail_point = points[killmail_index]
     camera.SetPosition(
-        killmail_point[0], killmail_point[1], killmail_point[2] + 999999
+        killmail_point[0], killmail_point[1], killmail_point[2] + 99999999999999
     )  # Set the initial camera position
     camera.SetFocalPoint(
         killmail_point
@@ -1184,7 +1199,7 @@ async def run_background_tasks(settings):
 
 def open_url_in_browser(treeview):
     selected_item = treeview.selection()[0]
-    url = treeview.item(selected_item, "values")[2]
+    url = treeview.item(selected_item, "values")[3]
     webbrowser.open(url)
 
 
