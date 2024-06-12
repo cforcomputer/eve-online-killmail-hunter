@@ -19,6 +19,7 @@ from xml.etree import ElementTree as ET
 from itertools import combinations
 
 import numpy as np
+from scipy.spatial import Delaunay
 
 import vtk
 
@@ -280,8 +281,10 @@ async def process_killmail(
             except Exception as e:
                 print("Probability calculation failed: " + str(e))
 
-            points, colors = create_point_cloud(killmail_position, celestial_list)
-            export_point_cloud(points, colors, id)
+            points, colors, titles = create_point_cloud(
+                killmail_position, id, celestial_list
+            )
+            export_point_cloud(points, colors, titles, id)
             treeview.insert(
                 "",
                 "end",
@@ -415,26 +418,19 @@ def get_celestials(system_id):
     print("Sending api request to fuzzworks for celestial locations: " + str(url))
     response = requests.get(url)
     print(response)
-    # print(response.text)
     if response.status_code != 200:
         raise Exception("Failed to fetch data from Fuzzworks API")
 
     tree = ET.ElementTree(ET.fromstring(response.content))
     root = tree.getroot()
-    # print(root.findall(".//row"))
 
     celestials = []
     for item in root.findall(".//row"):
-        x = float(item.find("x").text)
-        y = float(item.find("y").text)
-        z = float(item.find("z").text)
         celestial = {
-            "x": x,
-            "y": y,
-            "z": z,
-            "radius": float(
-                item.get("radius", 0)
-            ),  # radius is optional, default to 0 if not provided
+            "x": float(item.find("x").text),
+            "y": float(item.find("y").text),
+            "z": float(item.find("z").text),
+            "itemname": item.find("itemname").text,
         }
         celestials.append(celestial)
     print(celestials)
@@ -473,30 +469,33 @@ def check_killmail_probability(killmail_data):
     return count_within_bounds, celestials, killmail_position
 
 
-def create_point_cloud(killmail_position, celestials):
-    # Initialize lists to store points and colors
+def create_point_cloud(killmail_position, killmail_title, celestials):
+    # Initialize lists to store points, colors, and titles
     points = []
     colors = []
+    titles = []
 
     # Add killmail position as red point
     points.append(killmail_position)
     colors.append([255, 0, 0])  # Red color for killmail
+    titles.append("kill")
 
     # Add celestial positions as blue points
     for celestial in celestials:
         celestial_position = [celestial["x"], celestial["y"], celestial["z"]]
         points.append(celestial_position)
         colors.append([0, 0, 255])  # Blue color for celestial
+        titles.append(celestial["itemname"])
 
-    return np.array(points), np.array(colors)
+    return np.array(points), np.array(colors), np.array(titles)
 
 
-def export_point_cloud(points, colors, killmail_id):
+def export_point_cloud(points, colors, titles, killmail_id):
     # Ensure the maps directory exists
     os.makedirs("maps", exist_ok=True)
 
     filename = f"maps/{killmail_id}.npz"
-    np.savez(filename, points=points, colors=colors)
+    np.savez(filename, points=points, colors=colors, titles=titles)
     print(f"Point cloud exported to {filename}")
 
 
@@ -720,22 +719,24 @@ async def start_gui(settings, with_gui=True):
                 label=filter_item["file"], variable=enabled
             )
 
-        def view_map(event):
+        def show_context_menu(event):
             item = treeview.identify_row(event.y)
             if item:
-                treeview.selection_set(item)
+                context_menu.post(event.x_root, event.y_root)
+
+        def view_map():
+            item = treeview.selection()
+            if item:
                 id = treeview.item(item, "values")[4]
                 if id:
                     filename = f"maps/{id}.npz"
                     display_point_cloud_in_tkinter(filename)
 
-        def show_context_menu(event):
-            view_map(event)
-            context_menu.post(event.x_root, event.y_root)
-
         context_menu = tk.Menu(treeview, tearoff=0)
+        # In the definition of context_menu:
         context_menu.add_command(label="View map", command=view_map)
 
+        # Then, bind show_context_menu to the right-click event
         treeview.bind("<Button-3>", show_context_menu)
 
         def toggle_dropdown(event=None):
@@ -788,15 +789,33 @@ async def start_gui(settings, with_gui=True):
 
 
 def load_point_cloud_from_file(killmail_id):
-    filename = killmail_id
+    filename = f"{killmail_id}"
     if os.path.exists(filename):
-        data = np.load(filename)
+        data = np.load(filename, allow_pickle=True)
         points = data["points"]
         colors = data["colors"]
-        return points, colors
+        titles = data["titles"]
+        return points, colors, titles
     else:
         print(f"File {filename} not found.")
-        return None, None
+        return None, None, None
+
+
+def find_closest_celestials(killmail_position, celestials):
+    points = np.array([[c["x"], c["y"], c["z"]] for c in celestials])
+
+    # Perform Delaunay triangulation using scipy
+    delaunay = Delaunay(points)
+
+    # Find the simplex (tetrahedron) containing the killmail_position
+    simplex = delaunay.find_simplex(killmail_position)
+    if simplex == -1:
+        print("No simplex found containing the killmail position.")
+        return None
+
+    # Get the vertices of the simplex
+    vertices = delaunay.simplices[simplex]
+    return [celestials[i] for i in vertices]
 
 
 def create_lines_between_points(points, killmail_index):
@@ -828,26 +847,89 @@ def create_lines_between_points(points, killmail_index):
     return lines, line_colors
 
 
+def create_lines_and_polygons_between_points(
+    points, killmail_index, closest_celestials_indices
+):
+    lines = vtk.vtkCellArray()
+    polygons = vtk.vtkCellArray()
+    line_colors = vtk.vtkUnsignedCharArray()
+    polygon_colors = vtk.vtkUnsignedCharArray()
+    line_colors.SetNumberOfComponents(3)
+    polygon_colors.SetNumberOfComponents(3)
+    line_colors.SetName("LineColors")
+    polygon_colors.SetName("PolygonColors")
+
+    celestial_indices = closest_celestials_indices
+
+    # Create a full volume (tetrahedron) with 4 points
+    tetra_faces = [
+        [celestial_indices[0], celestial_indices[1], celestial_indices[2]],
+        [celestial_indices[0], celestial_indices[1], celestial_indices[3]],
+        [celestial_indices[0], celestial_indices[2], celestial_indices[3]],
+        [celestial_indices[1], celestial_indices[2], celestial_indices[3]],
+    ]
+
+    for face in tetra_faces:
+        polygon = vtk.vtkPolygon()
+        polygon.GetPointIds().SetNumberOfIds(len(face))
+        for i, idx in enumerate(face):
+            polygon.GetPointIds().SetId(i, idx)
+        polygons.InsertNextCell(polygon)
+        polygon_colors.InsertNextTuple([255, 0, 0])  # Red color for polygons
+
+    # Create lines for each edge of the tetrahedron
+    edges = [
+        (celestial_indices[0], celestial_indices[1]),
+        (celestial_indices[0], celestial_indices[2]),
+        (celestial_indices[0], celestial_indices[3]),
+        (celestial_indices[1], celestial_indices[2]),
+        (celestial_indices[1], celestial_indices[3]),
+        (celestial_indices[2], celestial_indices[3]),
+    ]
+
+    for edge in edges:
+        line = vtk.vtkLine()
+        line.GetPointIds().SetId(0, edge[0])
+        line.GetPointIds().SetId(1, edge[1])
+        lines.InsertNextCell(line)
+        line_colors.InsertNextTuple([255, 0, 0])  # Red color for lines
+
+    return lines, polygons, line_colors, polygon_colors
+
+
 def display_point_cloud_in_tkinter(killmail_id):
     # Load point cloud data from file
-    points, colors = load_point_cloud_from_file(killmail_id)
-    if points is None or colors is None:
+    points, colors, titles = load_point_cloud_from_file(killmail_id)
+    if points is None or colors is None or titles is None:
         return  # Return if data loading fails
 
     # Find the index of the killmail position
     killmail_index = None
-    for i, color in enumerate(colors):
-        if np.array_equal(color, [255, 0, 0]):  # Check if color matches red [255, 0, 0]
+    for i, title in enumerate(titles):
+        if title == "kill":
             killmail_index = i
+            print("killmail index is: " + str(i))
             break
 
     if killmail_index is None:
         print("Killmail position not found.")
         return
 
-    # Create a new Tkinter window
-    window = tk.Toplevel()
-    window.title("Point Cloud Visualization")
+    # Find the closest celestials
+    celestials = []
+    for i in range(1, len(points)):
+        if i != killmail_index:  # Exclude killmail point
+            celestials.append(
+                {"x": points[i][0], "y": points[i][1], "z": points[i][2], "index": i}
+            )
+
+    closest_celestials = find_closest_celestials(points[killmail_index], celestials)
+    if closest_celestials is None:
+        print("No closest celestials found.")
+        return
+
+    closest_celestials_indices = [c["index"] for c in closest_celestials]
+    print(f"Closest celestials indices: {closest_celestials_indices}")
 
     # Create a VTK render window
     render_window = vtk.vtkRenderWindow()
@@ -887,9 +969,13 @@ def display_point_cloud_in_tkinter(killmail_id):
     actor.GetProperty().SetColor(0, 0, 1)  # Blue color for points
     actor.GetProperty().SetPointSize(3)  # Smaller size for blue points
 
-    # Create lines between all points
-    lines, line_colors = create_lines_between_points(points, killmail_index)
-
+    # Create lines and polygons between points and the killmail excluding the killmail point itself
+    # Create lines and polygons between points and the killmail excluding the killmail point itself
+    lines, polygons, line_colors, polygon_colors = (
+        create_lines_and_polygons_between_points(
+            points, killmail_index, closest_celestials_indices
+        )
+    )
     # Create a VTK polydata object for lines
     lines_polydata = vtk.vtkPolyData()
     lines_polydata.SetPoints(vtk_points)
@@ -904,10 +990,44 @@ def display_point_cloud_in_tkinter(killmail_id):
     lines_actor = vtk.vtkActor()
     lines_actor.SetMapper(lines_mapper)
 
+    # Create a VTK polydata object for polygons
+    polygons_polydata = vtk.vtkPolyData()
+    polygons_polydata.SetPoints(vtk_points)
+    polygons_polydata.SetPolys(polygons)
+    polygons_polydata.GetCellData().SetScalars(polygon_colors)  # Assign polygon colors
+
+    # Create a mapper for polygons
+    polygons_mapper = vtk.vtkPolyDataMapper()
+    polygons_mapper.SetInputData(polygons_polydata)
+
+    # Create an actor for polygons
+    polygons_actor = vtk.vtkActor()
+    polygons_actor.SetMapper(polygons_mapper)
+    polygons_actor.GetProperty().SetOpacity(
+        0.5
+    )  # Set opacity for polygons (adjust as needed)
+
+    # Create lines between all points using the old method
+    all_lines, all_line_colors = create_lines_between_points(points, killmail_index)
+
+    # Create a VTK polydata object for all lines
+    all_lines_polydata = vtk.vtkPolyData()
+    all_lines_polydata.SetPoints(vtk_points)
+    all_lines_polydata.SetLines(all_lines)
+    all_lines_polydata.GetCellData().SetScalars(all_line_colors)  # Assign line colors
+
+    # Create a mapper for all lines
+    all_lines_mapper = vtk.vtkPolyDataMapper()
+    all_lines_mapper.SetInputData(all_lines_polydata)
+
+    # Create an actor for all lines
+    all_lines_actor = vtk.vtkActor()
+    all_lines_actor.SetMapper(all_lines_mapper)
+
     # Create a red sphere to represent the killmail point
     killmail_sphere = vtk.vtkSphereSource()
     killmail_sphere.SetCenter(points[killmail_index])
-    killmail_sphere.SetRadius(1000000)  # Larger radius for the red sphere
+    killmail_sphere.SetRadius(1000000)  # Larger radius for the killmail sphere
 
     # Create a mapper for the red sphere
     killmail_mapper = vtk.vtkPolyDataMapper()
@@ -916,14 +1036,64 @@ def display_point_cloud_in_tkinter(killmail_id):
     # Create an actor for the red sphere
     killmail_actor = vtk.vtkActor()
     killmail_actor.SetMapper(killmail_mapper)
-    killmail_actor.GetProperty().SetColor(
-        1, 0, 1
-    )  # Hot pink color for the killmail point
+    killmail_actor.GetProperty().SetColor(1, 0, 0)  # Red color for the killmail point
+
+    # Create a yellow sphere around the killmail point
+    yellow_sphere = vtk.vtkSphereSource()
+    yellow_sphere.SetCenter(points[killmail_index])
+    yellow_sphere.SetRadius(99999999)  # Larger radius for the yellow sphere
+
+    # Create a mapper for the yellow sphere
+    yellow_mapper = vtk.vtkPolyDataMapper()
+    yellow_mapper.SetInputConnection(yellow_sphere.GetOutputPort())
+
+    # Create an actor for the yellow sphere
+    yellow_actor = vtk.vtkActor()
+    yellow_actor.SetMapper(yellow_mapper)
+    yellow_actor.GetProperty().SetColor(1, 1, 0)  # Yellow color for the larger sphere
+    yellow_actor.GetProperty().SetOpacity(0.3)  # Set opacity for the yellow sphere
 
     # Add actors to the renderer
+    renderer.AddActor(yellow_actor)
     renderer.AddActor(actor)
     renderer.AddActor(lines_actor)
+    renderer.AddActor(polygons_actor)  # Add polygons actor to the renderer
+    renderer.AddActor(all_lines_actor)  # Add all lines actor to the renderer
     renderer.AddActor(killmail_actor)
+
+    # Create a VTK camera
+    camera = vtk.vtkCamera()
+
+    # Set up the camera
+    killmail_point = points[killmail_index]
+    camera.SetPosition(
+        killmail_point[0], killmail_point[1], killmail_point[2] + 1000
+    )  # Set the initial camera position
+    camera.SetFocalPoint(
+        killmail_point
+    )  # Set the initial focal point to the killmail point
+    camera.SetViewUp(0, 1, 0)  # Set the up direction of the camera
+
+    # Adjust the clipping planes to avoid occlusion issues
+    camera.SetClippingRange(
+        0.1, 1e7
+    )  # Near clipping plane set to a very small value, far clipping plane set to a large value
+
+    # Add the camera to the renderer
+    renderer.SetActiveCamera(camera)
+
+    # Create a callback function for picking
+    def pick_callback(obj, event):
+        click_pos = obj.GetEventPosition()
+        picker = vtk.vtkPropPicker()
+        picker.Pick(click_pos[0], click_pos[1], 0, renderer)
+        picked_actor = picker.GetActor()
+        if picked_actor:
+            camera.SetFocalPoint(picker.GetPickPosition())
+            render_window.Render()
+
+    # Assign the callback function to the interactor
+    render_window_interactor.AddObserver("LeftButtonPressEvent", pick_callback)
 
     # Start the rendering process
     render_window.Render()
@@ -963,8 +1133,8 @@ def load_settings():
             time_threshold = int(settings_data.get("time_threshold"))
             dropped_value = float(settings_data.get("dropped_value"))
             audio_alerts_enabled = settings_data.get("audio_alerts_enabled", False)
-            npc_only = settings_data.get("npc_only", False)
-            solo = settings_data.get("solo", False)
+            # npc_only = settings_data.get("npc_only", False)
+            # solo = settings_data.get("solo", False)
 
             if (
                 filter_lists
