@@ -975,6 +975,29 @@ def format_distance(distance_m):
         return f"{distance_km:.2f} km"
 
 
+def toggle_lines_callback(obj, event):
+    global all_lines_actor
+    click_pos = obj.GetEventPosition()
+    picker = vtk.vtkPropPicker()
+    picker.Pick(
+        click_pos[0],
+        click_pos[1],
+        0,
+        obj.GetRenderWindow().GetRenderers().GetFirstRenderer(),
+    )
+    picked_actor = picker.GetActor2D()
+    if picked_actor == toggle_button:
+        if all_lines_actor:
+            visibility = all_lines_actor.GetVisibility()
+            all_lines_actor.SetVisibility(not visibility)
+            obj.GetRenderWindow().Render()
+
+
+# Global variables for actors
+all_lines_actor = None
+toggle_button = None
+
+
 def display_point_cloud_in_tkinter(killmail_id):
     # Load point cloud data from file
     points, colors, titles = load_point_cloud_from_file(killmail_id)
@@ -1129,6 +1152,8 @@ def display_point_cloud_in_tkinter(killmail_id):
     all_lines_mapper.SetInputData(all_lines_polydata)
 
     # Create an actor for all lines
+    global all_lines_actor
+    # Create an actor for all lines
     all_lines_actor = vtk.vtkActor()
     all_lines_actor.SetMapper(all_lines_mapper)
     # Set line properties
@@ -1226,8 +1251,6 @@ def display_point_cloud_in_tkinter(killmail_id):
 
     # Create lines radiating out from the Star point along each axis direction
     star_point = points[star_index]
-
-    line_points = vtk.vtkPoints()
     lines = vtk.vtkCellArray()
 
     # Define the length of the lines
@@ -1266,6 +1289,88 @@ def display_point_cloud_in_tkinter(killmail_id):
     line_actor = vtk.vtkActor()
     line_actor.SetMapper(line_mapper)
     line_actor.GetProperty().SetColor(1, 1, 0)  # Yellow color for the lines
+    line_actor.PickableOff()
+
+    ## Create a toggle button text actor
+    global toggle_button
+    toggle_button = vtk.vtkTextActor()
+    toggle_button.SetInput("Toggle All Lines")
+    toggle_button.GetTextProperty().SetFontSize(18)
+    toggle_button.GetTextProperty().SetColor(1, 1, 1)  # White color for text
+
+    # Position the toggle button in the renderer window
+    toggle_button.SetPosition(10, 10)
+
+    # Add observer to handle left button press event
+    render_window_interactor.AddObserver(
+        vtk.vtkCommand.LeftButtonPressEvent, toggle_lines_callback
+    )
+
+    # Create a background rectangle for the toggle button
+    background = vtk.vtkTexturedActor2D()
+    background_mapper = vtk.vtkPolyDataMapper2D()
+    background_polydata = vtk.vtkPolyData()
+    background_points = vtk.vtkPoints()
+    background_cells = vtk.vtkCellArray()
+
+    # Define the corners of the rectangle
+    button_width = 150
+    button_height = 30
+    background_points.InsertNextPoint(0, 0, 0)
+    background_points.InsertNextPoint(button_width, 0, 0)
+    background_points.InsertNextPoint(button_width, button_height, 0)
+    background_points.InsertNextPoint(0, button_height, 0)
+
+    background_polydata.SetPoints(background_points)
+
+    # Create the rectangle
+    rectangle = vtk.vtkPolygon()
+    rectangle.GetPointIds().SetNumberOfIds(4)
+    for i in range(4):
+        rectangle.GetPointIds().SetId(i, i)
+    background_cells.InsertNextCell(rectangle)
+    background_polydata.SetPolys(background_cells)
+
+    background_mapper.SetInputData(background_polydata)
+    background.SetMapper(background_mapper)
+    background.GetProperty().SetColor(0.2, 0.2, 0.2)  # Dark grey color for background
+    background.GetProperty().SetOpacity(0.8)  # Set opacity for the background
+
+    # Position the background rectangle to match the text position
+    background.SetPosition(5, 5)
+
+    # Update the toggle button text position to be centered on the background
+    toggle_button.SetPosition(10, 10)
+
+    # closest_celestial_text_actors = []
+
+    # Create text actors for each of the closest celestials
+    # Create text actors for each of the closest celestials
+    # for i, celestial in enumerate(closest_celestials):
+    #     text_actor = vtk.vtkTextActor3D()
+    #     text_actor.GetTextProperty().SetFontSize(24)
+    #     text_actor.GetTextProperty().SetColor(1, 1, 1)  # White color for text
+
+    #     # Get the title and position for the celestial
+    #     index = celestial["index"]
+    #     title_text = titles[index] if titles[index] is not None else "Unknown"
+    #     position = points[index]
+
+    #     # Set the text and position for the text actor
+    #     text_actor.SetInput(title_text)
+    #     print(title_text)
+    #     text_actor.SetPosition(position)
+    #     print(position)
+
+    #     # Add the text actor to the renderer and to the list
+    #     renderer.AddActor(text_actor)
+    #     closest_celestial_text_actors.append(text_actor)
+
+    # Add the background to the renderer
+    renderer.AddActor2D(background)
+
+    # Add the toggle button to the renderer
+    renderer.AddActor2D(toggle_button)
 
     # Add actors to the renderer
 
