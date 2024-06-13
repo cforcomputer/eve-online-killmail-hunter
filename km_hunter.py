@@ -156,7 +156,9 @@ async def process_killmail(
     label_color = "grey"  # Initialize label color
 
     if "zkb" in killmail_data:
+        # Debug
         # killmail_data = r'{"attackers":[{"alliance_id":99011606,"character_id":2119099774,"corporation_id":98682653,"damage_done":8592,"final_blow":true,"security_status":-1.0,"ship_type_id":11999,"weapon_type_id":2897},{"alliance_id":99009927,"character_id":2119074886,"corporation_id":98457503,"damage_done":2523,"final_blow":false,"security_status":-10.0,"ship_type_id":35683,"weapon_type_id":35683}],"killmail_id":118434158,"killmail_time":"2024-06-06T07:23:54Z","solar_system_id":30002539,"victim":{"alliance_id":99003581,"character_id":2122282418,"corporation_id":98598862,"damage_taken":11115,"faction_id":500011,"items":[{"flag":11,"item_type_id":22291,"quantity_destroyed":1,"singleton":0},{"flag":5,"item_type_id":8089,"quantity_dropped":4,"singleton":0},{"flag":5,"item_type_id":27453,"quantity_destroyed":360,"singleton":0},{"flag":5,"item_type_id":27441,"quantity_dropped":335,"singleton":0},{"flag":93,"item_type_id":31360,"quantity_destroyed":1,"singleton":0},{"flag":21,"item_type_id":35659,"quantity_destroyed":1,"singleton":0},{"flag":27,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":30,"item_type_id":209,"quantity_dropped":36,"singleton":0},{"flag":5,"item_type_id":27435,"quantity_dropped":425,"singleton":0},{"flag":28,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":31,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":20,"item_type_id":8419,"quantity_dropped":1,"singleton":0},{"flag":29,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":19,"item_type_id":8419,"quantity_destroyed":1,"singleton":0},{"flag":12,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":23,"item_type_id":54291,"quantity_dropped":1,"singleton":0},{"flag":30,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":27,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":92,"item_type_id":31718,"quantity_destroyed":1,"singleton":0},{"flag":28,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":5,"item_type_id":209,"quantity_dropped":3715,"singleton":0},{"flag":5,"item_type_id":27447,"quantity_destroyed":180,"singleton":0},{"flag":13,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":31,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":22,"item_type_id":54291,"quantity_destroyed":1,"singleton":0},{"flag":29,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":14,"item_type_id":8225,"quantity_dropped":1,"singleton":0},{"flag":94,"item_type_id":31790,"quantity_destroyed":1,"singleton":0}],"position":{"x":557047590541.1138,"y":-48686415427.03836,"z":1300842933956.2546},"ship_type_id":621}}'
+        # -----------
         dropped_value = killmail_data["zkb"]["droppedValue"]
         url = killmail_data["zkb"]["url"]
         id = killmail_data["killmail_id"]
@@ -962,7 +964,9 @@ def create_lines_and_polygons_between_points(
     return lines, polygons, line_colors, polygon_colors
 
 
-def format_distance(distance_km):
+def format_distance(distance_m):
+    # print("Raw distance in meters: " + str(distance_m))  # debug
+    distance_km = distance_m / 1000  # Convert meters to kilometers
     AU_IN_KM = 149597870.7
     if distance_km >= AU_IN_KM:
         distance_au = distance_km / AU_IN_KM
@@ -1023,6 +1027,18 @@ def display_point_cloud_in_tkinter(killmail_id):
     # Many celestials do not seem to have title
     if closest_celestial_title is None:
         closest_celestial_title = "Unknown"
+
+    # Find the index of the point with the title containing "Sun"
+    star_index = None
+    for i, title in enumerate(titles):
+        if "Star" in title:
+            star_index = i
+            print("Star index is: " + str(i))
+            break
+
+    if star_index is None:
+        print("Star position not found.")
+        return
 
     # Create a VTK render window
     render_window = vtk.vtkRenderWindow()
@@ -1193,6 +1209,68 @@ def display_point_cloud_in_tkinter(killmail_id):
     )  # Green color for the closest celestial point
     closest_celestial_actor.GetProperty().SetOpacity(0.70)
 
+    # ////////////////sun testing////////////////////////////////////
+    # Create a gold sphere to represent the Sun point
+    star_sphere = vtk.vtkSphereSource()
+    star_sphere.SetCenter(points[star_index])
+    star_sphere.SetRadius(1000000000)  # Adjust the radius as needed
+
+    # Create a mapper
+    star_mapper = vtk.vtkPolyDataMapper()
+    star_mapper.SetInputConnection(star_sphere.GetOutputPort())
+
+    # Create an actor
+    star_actor = vtk.vtkActor()
+    star_actor.SetMapper(star_mapper)
+    star_actor.GetProperty().SetColor(255, 223, 0)  # Green color for the Sun point
+
+    # Create lines radiating out from the Star point along each axis direction
+    star_point = points[star_index]
+
+    line_points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
+
+    # Define the length of the lines
+    line_length = 10000000000000  # Adjust the length as needed
+
+    # Create lines in each primary axis direction (x, y, z) and both positive and negative directions
+    directions = [-1, 1]
+    for axis in range(3):  # 0 for x, 1 for y, 2 for z
+        for direction in directions:
+            # Create line points along the axis direction
+            line_point1 = [star_point[0], star_point[1], star_point[2]]
+            line_point2 = [star_point[0], star_point[1], star_point[2]]
+            line_point1[axis] += direction * line_length
+            line_point2[axis] -= direction * line_length
+
+            # Insert line points into vtk_points
+            id1 = vtk_points.InsertNextPoint(line_point1)
+            id2 = vtk_points.InsertNextPoint(line_point2)
+
+            # Create line cell and insert into lines
+            line = vtk.vtkLine()
+            line.GetPointIds().SetId(0, id1)
+            line.GetPointIds().SetId(1, id2)
+            lines.InsertNextCell(line)
+
+    # Create polydata for lines
+    line_polydata = vtk.vtkPolyData()
+    line_polydata.SetPoints(vtk_points)
+    line_polydata.SetLines(lines)
+
+    # Create mapper for lines
+    line_mapper = vtk.vtkPolyDataMapper()
+    line_mapper.SetInputData(line_polydata)
+
+    # Create actor for lines
+    line_actor = vtk.vtkActor()
+    line_actor.SetMapper(line_mapper)
+    line_actor.GetProperty().SetColor(1, 1, 0)  # Yellow color for the lines
+
+    # Add actors to the renderer
+
+    renderer.AddActor(star_actor)
+    renderer.AddActor(line_actor)
     # Add actors to the renderer
     # Add the corner annotation to the renderer
     renderer.AddActor2D(corner_annotation)
@@ -1209,13 +1287,18 @@ def display_point_cloud_in_tkinter(killmail_id):
 
     # Set up the camera
     killmail_point = points[killmail_index]
-    camera.SetPosition(
-        killmail_point[0], killmail_point[1], killmail_point[2] + 99999999999999
-    )  # Set the initial camera position
+    # camera.SetPosition(
+    #     killmail_point[0], killmail_point[1] - 9999999999999, killmail_point[2]
+    # )  # Set the initial camera position
+
+    camera.SetPosition(star_point[0], star_point[1] - 2 * line_length, star_point[2])
     camera.SetFocalPoint(
         killmail_point
     )  # Set the initial focal point to the killmail point
     camera.SetViewUp(0, 1, 0)  # Set the up direction of the camera
+
+    # Rotate the camera around the x-axis
+    camera.Azimuth(180)  # Rotate by 30 degrees (adjust as needed)
 
     # Adjust the clipping planes to avoid occlusion issues
     camera.SetClippingRange(
