@@ -162,6 +162,7 @@ async def process_killmail(
         id = killmail_data["killmail_id"]
         npc = killmail_data["zkb"]["npc"]
         solo = killmail_data["zkb"]["solo"]
+        solar_system_name = ""
 
         # Gather attacker ids, corp ids
         attacker_ship_type_ids = []
@@ -259,9 +260,12 @@ async def process_killmail(
             kill_details = f"{killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}\n{url}"
 
             try:
-                probability_label, celestial_list, killmail_position = (
-                    check_killmail_probability(killmail_data)
-                )
+                (
+                    probability_label,
+                    celestial_list,
+                    killmail_position,
+                    solar_system_name,
+                ) = check_killmail_probability(killmail_data)
 
                 print("Triangulation possible: " + str(probability_label))
             except Exception as e:
@@ -288,6 +292,7 @@ async def process_killmail(
                     probability_label,
                     url,
                     id,
+                    solar_system_name,
                 ),
                 tags=label_color,
             )
@@ -378,7 +383,10 @@ async def process_killmail(
                                 values=(
                                     formatted_dropped_value,
                                     time_difference,
+                                    probability_label,
                                     url,
+                                    id,
+                                    solar_system_name,
                                 ),
                                 tags=(label_color + ".TLabel",),
                             )
@@ -409,7 +417,7 @@ async def process_killmail(
 
 def get_celestials(system_id):
     url = f"https://www.fuzzwork.co.uk/api/mapdata.php?solarsystemid={system_id}&format=xml"
-    print("Sending api request to fuzzworks for celestial locations: " + str(url))
+    print("Sending API request to fuzzworks for celestial locations: " + str(url))
     response = requests.get(url)
     print(response)
     if response.status_code != 200:
@@ -419,16 +427,44 @@ def get_celestials(system_id):
     root = tree.getroot()
 
     celestials = []
+    solarsystemname = None
     for item in root.findall(".//row"):
+        if solarsystemname is None:
+            solarsystemname = item.find("solarsystemname").text
+
+        x = float(item.find("x").text)
+        y = float(item.find("y").text)
+        z = float(item.find("z").text)
+
+        itemname = item.find("itemname").text
+        if not itemname:  # If itemname is None or empty, call the nearest celestial API
+            itemname = get_nearest_celestial(x, y, z, system_id)
+
         celestial = {
-            "x": float(item.find("x").text),
-            "y": float(item.find("y").text),
-            "z": float(item.find("z").text),
-            "itemname": item.find("itemname").text,
+            "x": x,
+            "y": y,
+            "z": z,
+            "itemname": itemname,
+            "solarsystemname": solarsystemname,
         }
         celestials.append(celestial)
-    print(celestials)
-    return celestials
+
+    return celestials, solarsystemname
+
+
+def get_nearest_celestial(x, y, z, solarsystemid):
+    url = f"https://www.fuzzwork.co.uk/api/nearestCelestial.php?x={x}&y={y}&z={z}&solarsystemid={solarsystemid}"
+    print(
+        "Sending API request to fuzzworks for nearest celestial (Unknown named celestial from celestial api): "
+        + str(url)
+    )
+    response = requests.get(url)
+    print(response)
+    if response.status_code != 200:
+        raise Exception("Failed to fetch data from Fuzzworks nearest celestial API")
+
+    data = response.json()
+    return data.get("itemName")
 
 
 def is_within_box(killmail_position, celestial_combination):
@@ -452,13 +488,13 @@ def check_killmail_probability(killmail_data):
     )
     system_id = killmail_data["solar_system_id"]
 
-    celestials = get_celestials(system_id)
+    celestials, system_name = get_celestials(system_id)
 
     # Check if there are closest celestials and calculate count_within_bounds
     closest_celestials = find_closest_celestials(killmail_position, celestials)
     count_within_bounds = "Y" if closest_celestials else "N"
 
-    return count_within_bounds, celestials, killmail_position
+    return count_within_bounds, celestials, killmail_position, system_name
 
 
 def create_point_cloud(killmail_position, killmail_title, celestials):
@@ -613,7 +649,7 @@ async def start_gui(settings, with_gui=True):
         root = tk.Tk()
         root.iconbitmap("logo.ico")
         root.minsize(280, 300)
-        root.title("KM Hunter 1.2")
+        root.title("KM Hunter 1.3")
         root.pack_propagate(False)
 
         # Create the main frame
@@ -716,17 +752,31 @@ async def start_gui(settings, with_gui=True):
             if item:
                 context_menu.post(event.x_root, event.y_root)
 
+        # View the webgl preview window for the wreck location
         def view_map():
             item = treeview.selection()
             if item:
-                id = treeview.item(item, "values")[4]
+                id = treeview.item(item, "values")[4]  # 5th value row in treeview
                 if id:
                     filename = f"maps/{id}.npz"
                     display_point_cloud_in_tkinter(filename)
 
+        # Copy the system name for the selection to the treeview
+        def copy_system_to_clipboard():
+            item = treeview.selection()
+            if item:
+                system = treeview.item(item, "values")[5]
+                if system:
+                    root.clipboard_clear()
+                    root.clipboard_append(system)
+
         context_menu = tk.Menu(treeview, tearoff=0)
         # In the definition of context_menu:
         context_menu.add_command(label="View map", command=view_map)
+        # Second context window button
+        context_menu.add_command(
+            label="Copy system to clipboard", command=copy_system_to_clipboard
+        )
 
         # Then, bind show_context_menu to the right-click event
         treeview.bind("<Button-3>", show_context_menu)
@@ -912,6 +962,15 @@ def create_lines_and_polygons_between_points(
     return lines, polygons, line_colors, polygon_colors
 
 
+def format_distance(distance_km):
+    AU_IN_KM = 149597870.7
+    if distance_km >= AU_IN_KM:
+        distance_au = distance_km / AU_IN_KM
+        return f"{distance_au:.2f} AU"
+    else:
+        return f"{distance_km:.2f} km"
+
+
 def display_point_cloud_in_tkinter(killmail_id):
     # Load point cloud data from file
     points, colors, titles = load_point_cloud_from_file(killmail_id)
@@ -953,18 +1012,17 @@ def display_point_cloud_in_tkinter(killmail_id):
     )
     if closest_celestial is None:
         print("No closest celestial found.")
-        return
+    else:
+        closest_celestial_index = closest_celestial["index"]
+        closest_celestial_title = titles[closest_celestial_index]
+        formatted_distance = format_distance(closest_distance)
+        print(f"Closest celestial index: {closest_celestial_index}")
+        print(f"Closest celestial title: {closest_celestial_title}")
+        print(f"Distance to closest celestial: {formatted_distance}")
 
-    # index = celestial["index"]
-    # title_text = titles[index]
-    closest_celestial_index = closest_celestial["index"]
-    closest_celestial_title = titles[closest_celestial_index]
-    # @NOTE: The closest celestial title is often none when using the fuzzworks api
-    # if closest_celestial_title is None:
-    #     closest_celestial_title = "No name"
-    print(f"Closest celestial index: {closest_celestial_index}")
-    print(f"Closest celestial title: {closest_celestial_title}")
-    print(f"Distance to closest celestial: {closest_distance}")
+    # Many celestials do not seem to have title
+    if closest_celestial_title is None:
+        closest_celestial_title = "Unknown"
 
     # Create a VTK render window
     render_window = vtk.vtkRenderWindow()
@@ -1061,6 +1119,7 @@ def display_point_cloud_in_tkinter(killmail_id):
     all_lines_actor.GetProperty().SetOpacity(0.65)
     all_lines_actor.GetProperty().SetLineStipplePattern(0xAAAA)  # Dotted line pattern
     all_lines_actor.GetProperty().SetLineWidth(1)  # Adjust line width as needed
+    all_lines_actor.PickableOff()
 
     # Create a red sphere to represent the killmail point
     killmail_sphere = vtk.vtkSphereSource()
@@ -1091,12 +1150,15 @@ def display_point_cloud_in_tkinter(killmail_id):
     yellow_actor.GetProperty().SetColor(1, 1, 0)  # Yellow color for the larger sphere
     yellow_actor.GetProperty().SetOpacity(0.3)  # Set opacity for the yellow sphere
 
+    # Disable camera picking for the yellow sphere
+    yellow_actor.PickableOff()
+
     # Create a vtkCornerAnnotation
     corner_annotation = vtk.vtkCornerAnnotation()
     corner_annotation.GetTextProperty().SetColor(1, 1, 1)  # White color for text
 
     # Prepare the combined text for the annotation
-    annotation_text = f"Closest celestial: {closest_celestial_title}, Distance: {closest_distance:.2f}\n"
+    annotation_text = f"Closest celestial: {closest_celestial_title}, Distance: {formatted_distance}\n"
 
     # Add the titles of the closest celestials
     for i, celestial in enumerate(closest_celestials):
@@ -1115,9 +1177,8 @@ def display_point_cloud_in_tkinter(killmail_id):
     closest_celestial_sphere = vtk.vtkSphereSource()
     closest_celestial_sphere.SetCenter(points[closest_celestial_index])
     closest_celestial_sphere.SetRadius(
-        10000000
+        2000000
     )  # Larger radius for the closest celestial sphere
-
     # Create a mapper for the green sphere
     closest_celestial_mapper = vtk.vtkPolyDataMapper()
     closest_celestial_mapper.SetInputConnection(
@@ -1158,11 +1219,12 @@ def display_point_cloud_in_tkinter(killmail_id):
 
     # Adjust the clipping planes to avoid occlusion issues
     camera.SetClippingRange(
-        0.1, 1e7
+        0.000000001, 1e7
     )  # Near clipping plane set to a very small value, far clipping plane set to a large value
 
     # Add the camera to the renderer
     renderer.SetActiveCamera(camera)
+    renderer.SetNearClippingPlaneTolerance(0.000000001)
 
     # Create a callback function for picking
     def pick_callback(obj, event):
