@@ -5,3 +5,4 @@ credentials.txt
 .env
 experimental.py
 km_hunter.spec
+*.npz

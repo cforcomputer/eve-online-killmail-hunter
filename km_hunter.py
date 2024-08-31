@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 import argparse
 from pygame import mixer, time
 from xml.etree import ElementTree as ET
-from itertools import combinations
 
 import numpy as np
 from scipy.spatial import Delaunay
@@ -152,26 +151,20 @@ async def process_killmail(
     audio_alerts_enabled = settings.get("audio_alerts_enabled", True)  #
     npc_only_enabled = settings.get("npc_only", True)
     solo_enabled = settings.get("solo", False)
-    # print("max_time_threshold: " + str(max_time_threshold))
-    # print("min_dropped_value: " + str(min_dropped_value))
-    # print("time_threshhold_enabled: " + str(time_threshold_enabled))
-    # print("dropped_value_enabled: " + str(dropped_value_enabled))
-    # print("audio_alerts_enabled: " + str(audio_alerts_enabled))
+    triangulation_check_enabled = settings.get("triangulation_check", True)
 
     label_color = "grey"  # Initialize label color
 
-    if (
-        "zkb"
-        in killmail_data
-        # and "npc" in killmail_data["zkb"] # TODO: Make this an option to filter on npc only
-        # and killmail_data["zkb"]["npc"]
-    ):
+    if "zkb" in killmail_data:
+        # Debug
         # killmail_data = r'{"attackers":[{"alliance_id":99011606,"character_id":2119099774,"corporation_id":98682653,"damage_done":8592,"final_blow":true,"security_status":-1.0,"ship_type_id":11999,"weapon_type_id":2897},{"alliance_id":99009927,"character_id":2119074886,"corporation_id":98457503,"damage_done":2523,"final_blow":false,"security_status":-10.0,"ship_type_id":35683,"weapon_type_id":35683}],"killmail_id":118434158,"killmail_time":"2024-06-06T07:23:54Z","solar_system_id":30002539,"victim":{"alliance_id":99003581,"character_id":2122282418,"corporation_id":98598862,"damage_taken":11115,"faction_id":500011,"items":[{"flag":11,"item_type_id":22291,"quantity_destroyed":1,"singleton":0},{"flag":5,"item_type_id":8089,"quantity_dropped":4,"singleton":0},{"flag":5,"item_type_id":27453,"quantity_destroyed":360,"singleton":0},{"flag":5,"item_type_id":27441,"quantity_dropped":335,"singleton":0},{"flag":93,"item_type_id":31360,"quantity_destroyed":1,"singleton":0},{"flag":21,"item_type_id":35659,"quantity_destroyed":1,"singleton":0},{"flag":27,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":30,"item_type_id":209,"quantity_dropped":36,"singleton":0},{"flag":5,"item_type_id":27435,"quantity_dropped":425,"singleton":0},{"flag":28,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":31,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":20,"item_type_id":8419,"quantity_dropped":1,"singleton":0},{"flag":29,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":19,"item_type_id":8419,"quantity_destroyed":1,"singleton":0},{"flag":12,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":23,"item_type_id":54291,"quantity_dropped":1,"singleton":0},{"flag":30,"item_type_id":8105,"quantity_dropped":1,"singleton":0},{"flag":27,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":92,"item_type_id":31718,"quantity_destroyed":1,"singleton":0},{"flag":28,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":5,"item_type_id":209,"quantity_dropped":3715,"singleton":0},{"flag":5,"item_type_id":27447,"quantity_destroyed":180,"singleton":0},{"flag":13,"item_type_id":35774,"quantity_dropped":1,"singleton":0},{"flag":31,"item_type_id":209,"quantity_destroyed":36,"singleton":0},{"flag":22,"item_type_id":54291,"quantity_destroyed":1,"singleton":0},{"flag":29,"item_type_id":8105,"quantity_destroyed":1,"singleton":0},{"flag":14,"item_type_id":8225,"quantity_dropped":1,"singleton":0},{"flag":94,"item_type_id":31790,"quantity_destroyed":1,"singleton":0}],"position":{"x":557047590541.1138,"y":-48686415427.03836,"z":1300842933956.2546},"ship_type_id":621}}'
+        # -----------
         dropped_value = killmail_data["zkb"]["droppedValue"]
         url = killmail_data["zkb"]["url"]
         id = killmail_data["killmail_id"]
         npc = killmail_data["zkb"]["npc"]
         solo = killmail_data["zkb"]["solo"]
+        solar_system_name = ""
 
         # Gather attacker ids, corp ids
         attacker_ship_type_ids = []
@@ -268,16 +261,15 @@ async def process_killmail(
             # Generate kill details
             kill_details = f"{killmail_data['killmail_time']} {time_difference} Dropped value: {dropped_value}\n{url}"
 
-            # Insert kill to viewer
-            print("Checks passed. Adding kill to km-viewer")
-
             try:
-                probability_count, celestial_list, killmail_position = (
-                    check_killmail_probability(killmail_data)
-                )
-                probability = probability_count
+                (
+                    probability_label,
+                    celestial_list,
+                    killmail_position,
+                    solar_system_name,
+                ) = check_killmail_probability(killmail_data)
 
-                print("Probability calculated: " + str(probability))
+                print("Triangulation possible: " + str(probability_label))
             except Exception as e:
                 print("Probability calculation failed: " + str(e))
 
@@ -289,9 +281,10 @@ async def process_killmail(
                 values=(
                     formatted_dropped_value,
                     time_difference,
-                    probability,
+                    probability_label,
                     url,
                     id,
+                    solar_system_name,
                 ),
                 tags=label_color,
             )
@@ -382,7 +375,10 @@ async def process_killmail(
                                 values=(
                                     formatted_dropped_value,
                                     time_difference,
+                                    probability_label,
                                     url,
+                                    id,
+                                    solar_system_name,
                                 ),
                                 tags=(label_color + ".TLabel",),
                             )
@@ -413,7 +409,7 @@ async def process_killmail(
 
 def get_celestials(system_id):
     url = f"https://www.fuzzwork.co.uk/api/mapdata.php?solarsystemid={system_id}&format=xml"
-    print("Sending api request to fuzzworks for celestial locations: " + str(url))
+    print("Sending API request to fuzzworks for celestial locations: " + str(url))
     response = requests.get(url)
     print(response)
     if response.status_code != 200:
@@ -423,6 +419,7 @@ def get_celestials(system_id):
     root = tree.getroot()
 
     celestials = []
+    solarsystemname = None
     for item in root.findall(".//row"):
         celestial = {
             "x": float(item.find("x").text),
@@ -431,8 +428,23 @@ def get_celestials(system_id):
             "itemname": item.find("itemname").text
         }
         celestials.append(celestial)
-    print(celestials)
-    return celestials
+
+    return celestials, solarsystemname
+
+
+def get_nearest_celestial(x, y, z, solarsystemid):
+    url = f"https://www.fuzzwork.co.uk/api/nearestCelestial.php?x={x}&y={y}&z={z}&solarsystemid={solarsystemid}"
+    print(
+        "Sending API request to fuzzworks for nearest celestial (Unknown named celestial from celestial api): "
+        + str(url)
+    )
+    response = requests.get(url)
+    print(response)
+    if response.status_code != 200:
+        raise Exception("Failed to fetch data from Fuzzworks nearest celestial API")
+
+    data = response.json()
+    return data.get("itemName")
 
 
 def is_within_box(killmail_position, celestial_combination):
@@ -456,26 +468,28 @@ def check_killmail_probability(killmail_data):
     )
     system_id = killmail_data["solar_system_id"]
 
-    celestials = get_celestials(system_id)
+    celestials, system_name = get_celestials(system_id)
 
-    count_within_bounds = sum(
-        1
-        for combo in combinations(celestials, 3)
-        if is_within_box(killmail_position, combo)
-    )
+    # Check if there are closest celestials and calculate count_within_bounds
+    closest_celestials = find_closest_celestials(killmail_position, celestials)
+    count_within_bounds = "Y" if closest_celestials else "N"
 
-    return count_within_bounds, celestials, killmail_position
+    return count_within_bounds, celestials, killmail_position, system_name
 
 
+def create_point_cloud(killmail_position, killmail_title, celestials):
+    # Initialize lists to store points, colors, and titles
 def create_point_cloud(killmail_position, killmail_title, celestials):
     # Initialize lists to store points, colors, and titles
     points = []
     colors = []
     titles = []
+    titles = []
 
     # Add killmail position as red point
     points.append(killmail_position)
     colors.append([255, 0, 0])  # Red color for killmail
+    titles.append("kill")
     titles.append("kill")
 
     # Add celestial positions as blue points
@@ -484,15 +498,19 @@ def create_point_cloud(killmail_position, killmail_title, celestials):
         points.append(celestial_position)
         colors.append([0, 0, 255])  # Blue color for celestial
         titles.append(celestial["itemname"])
+        titles.append(celestial["itemname"])
 
+    return np.array(points), np.array(colors), np.array(titles)
     return np.array(points), np.array(colors), np.array(titles)
 
 
+def export_point_cloud(points, colors, titles, killmail_id):
 def export_point_cloud(points, colors, titles, killmail_id):
     # Ensure the maps directory exists
     os.makedirs("maps", exist_ok=True)
 
     filename = f"maps/{killmail_id}.npz"
+    np.savez(filename, points=points, colors=colors, titles=titles)
     np.savez(filename, points=points, colors=colors, titles=titles)
     print(f"Point cloud exported to {filename}")
 
@@ -619,7 +637,7 @@ async def start_gui(settings, with_gui=True):
         root = tk.Tk()
         root.iconbitmap("logo.ico")
         root.minsize(280, 300)
-        root.title("KM Hunter 1.2")
+        root.title("KM Hunter 1.3")
         root.pack_propagate(False)
 
         # Create the main frame
@@ -717,22 +735,38 @@ async def start_gui(settings, with_gui=True):
                 label=filter_item["file"], variable=enabled
             )
 
-        def view_map(event):
+        def show_context_menu(event):
             item = treeview.identify_row(event.y)
             if item:
-                treeview.selection_set(item)
-                id = treeview.item(item, "values")[4]
+                context_menu.post(event.x_root, event.y_root)
+
+        # View the webgl preview window for the wreck location
+        def view_map():
+            item = treeview.selection()
+            if item:
+                id = treeview.item(item, "values")[4]  # 5th value row in treeview
                 if id:
                     filename = f"maps/{id}.npz"
                     display_point_cloud_in_tkinter(filename)
 
-        def show_context_menu(event):
-            view_map(event)
-            context_menu.post(event.x_root, event.y_root)
+        # Copy the system name for the selection to the treeview
+        def copy_system_to_clipboard():
+            item = treeview.selection()
+            if item:
+                system = treeview.item(item, "values")[5]
+                if system:
+                    root.clipboard_clear()
+                    root.clipboard_append(system)
 
         context_menu = tk.Menu(treeview, tearoff=0)
+        # In the definition of context_menu:
         context_menu.add_command(label="View map", command=view_map)
+        # Second context window button
+        context_menu.add_command(
+            label="Copy system to clipboard", command=copy_system_to_clipboard
+        )
 
+        # Then, bind show_context_menu to the right-click event
         treeview.bind("<Button-3>", show_context_menu)
 
         def toggle_dropdown(event=None):
@@ -786,10 +820,14 @@ async def start_gui(settings, with_gui=True):
 
 def load_point_cloud_from_file(killmail_id):
     filename = f"{killmail_id}"
+    filename = f"{killmail_id}"
     if os.path.exists(filename):
+        data = np.load(filename, allow_pickle=True)
         data = np.load(filename, allow_pickle=True)
         points = data["points"]
         colors = data["colors"]
+        titles = data["titles"]
+        return points, colors, titles
         titles = data["titles"]
         return points, colors, titles
     else:
@@ -872,17 +910,108 @@ def create_lines_and_polygons_between_points(points, killmail_index, closest_cel
 
 
 
+def create_lines_and_polygons_between_points(
+    points, killmail_index, closest_celestials_indices
+):
+    lines = vtk.vtkCellArray()
+    polygons = vtk.vtkCellArray()
+    line_colors = vtk.vtkUnsignedCharArray()
+    polygon_colors = vtk.vtkUnsignedCharArray()
+    line_colors.SetNumberOfComponents(3)
+    polygon_colors.SetNumberOfComponents(3)
+    line_colors.SetName("LineColors")
+    polygon_colors.SetName("PolygonColors")
+
+    celestial_indices = closest_celestials_indices
+
+    # Create a full volume (tetrahedron) with 4 points
+    tetra_faces = [
+        [celestial_indices[0], celestial_indices[1], celestial_indices[2]],
+        [celestial_indices[0], celestial_indices[1], celestial_indices[3]],
+        [celestial_indices[0], celestial_indices[2], celestial_indices[3]],
+        [celestial_indices[1], celestial_indices[2], celestial_indices[3]],
+    ]
+
+    for face in tetra_faces:
+        polygon = vtk.vtkPolygon()
+        polygon.GetPointIds().SetNumberOfIds(len(face))
+        for i, idx in enumerate(face):
+            polygon.GetPointIds().SetId(i, idx)
+        polygons.InsertNextCell(polygon)
+        polygon_colors.InsertNextTuple([255, 105, 180])  # Pink color for polygons
+
+    # Create lines for each edge of the tetrahedron
+    edges = [
+        (celestial_indices[0], celestial_indices[1]),
+        (celestial_indices[0], celestial_indices[2]),
+        (celestial_indices[0], celestial_indices[3]),
+        (celestial_indices[1], celestial_indices[2]),
+        (celestial_indices[1], celestial_indices[3]),
+        (celestial_indices[2], celestial_indices[3]),
+    ]
+
+    for edge in edges:
+        line = vtk.vtkLine()
+        line.GetPointIds().SetId(0, edge[0])
+        line.GetPointIds().SetId(1, edge[1])
+        lines.InsertNextCell(line)
+        line_colors.InsertNextTuple([255, 255, 255])  # White color for lines
+
+    return lines, polygons, line_colors, polygon_colors
+
+
+def format_distance(distance_m):
+    # print("Raw distance in meters: " + str(distance_m))  # debug
+    distance_km = distance_m / 1000  # Convert meters to kilometers
+    AU_IN_KM = 149597870.7
+    if distance_km >= AU_IN_KM:
+        distance_au = distance_km / AU_IN_KM
+        return f"{distance_au:.2f} AU"
+    else:
+        return f"{distance_km:.2f} km"
+
+
+def toggle_lines_callback(obj, event):
+    global all_lines_actor
+    click_pos = obj.GetEventPosition()
+    picker = vtk.vtkPropPicker()
+    picker.Pick(
+        click_pos[0],
+        click_pos[1],
+        0,
+        obj.GetRenderWindow().GetRenderers().GetFirstRenderer(),
+    )
+    picked_actor = picker.GetActor2D()
+    if picked_actor == toggle_button:
+        if all_lines_actor:
+            visibility = all_lines_actor.GetVisibility()
+            all_lines_actor.SetVisibility(not visibility)
+            obj.GetRenderWindow().Render()
+
+
+# Global variables for actors
+all_lines_actor = None
+toggle_button = None
+
+
 def display_point_cloud_in_tkinter(killmail_id):
     # Load point cloud data from file
     points, colors, titles = load_point_cloud_from_file(killmail_id)
     if points is None or colors is None or titles is None:
+    points, colors, titles = load_point_cloud_from_file(killmail_id)
+    if points is None or colors is None or titles is None:
         return  # Return if data loading fails
+
+    print(titles)
 
     # Find the index of the killmail position
     killmail_index = None
     for i, title in enumerate(titles):
         if title == "kill":
+    for i, title in enumerate(titles):
+        if title == "kill":
             killmail_index = i
+            print("killmail index is: " + str(i))
             print("killmail index is: " + str(i))
             break
 
@@ -1025,7 +1154,15 @@ def display_point_cloud_in_tkinter(killmail_id):
         celestial_spheres.append(celestial_actor)
 
     # Add actors to the renderer
+
+    renderer.AddActor(star_actor)
+    renderer.AddActor(line_actor)
+    # Add actors to the renderer
+    # Add the corner annotation to the renderer
+    renderer.AddActor2D(corner_annotation)
+    renderer.AddActor(yellow_actor)
     renderer.AddActor(actor)
+    renderer.AddActor(closest_celestial_actor)
     renderer.AddActor(lines_actor)
     renderer.AddActor(polygons_actor)  # Add polygons actor to the renderer
     renderer.AddActor(killmail_actor)
@@ -1098,6 +1235,7 @@ async def run_background_tasks(settings):
 
 def open_url_in_browser(treeview):
     selected_item = treeview.selection()[0]
+    url = treeview.item(selected_item, "values")[3]
     url = treeview.item(selected_item, "values")[3]
     webbrowser.open(url)
 
