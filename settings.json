@@ -1,8 +1,8 @@
 {
     "dropped_value_enabled": true,
-    "time_threshold_enabled": true,
-    "time_threshold": 120000000,
-    "dropped_value": 10000000000000000000,
+    "time_threshold_enabled": false,
+    "time_threshold": 1200000,
+    "dropped_value": 1000000,
     "audio_alerts_enabled": true,
     "npc_only": false,
     "solo": false,
