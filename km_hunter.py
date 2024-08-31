@@ -479,17 +479,13 @@ def check_killmail_probability(killmail_data):
 
 def create_point_cloud(killmail_position, killmail_title, celestials):
     # Initialize lists to store points, colors, and titles
-def create_point_cloud(killmail_position, killmail_title, celestials):
-    # Initialize lists to store points, colors, and titles
     points = []
     colors = []
-    titles = []
     titles = []
 
     # Add killmail position as red point
     points.append(killmail_position)
     colors.append([255, 0, 0])  # Red color for killmail
-    titles.append("kill")
     titles.append("kill")
 
     # Add celestial positions as blue points
@@ -498,19 +494,15 @@ def create_point_cloud(killmail_position, killmail_title, celestials):
         points.append(celestial_position)
         colors.append([0, 0, 255])  # Blue color for celestial
         titles.append(celestial["itemname"])
-        titles.append(celestial["itemname"])
 
     return np.array(points), np.array(colors), np.array(titles)
-    return np.array(points), np.array(colors), np.array(titles)
 
 
-def export_point_cloud(points, colors, titles, killmail_id):
 def export_point_cloud(points, colors, titles, killmail_id):
     # Ensure the maps directory exists
     os.makedirs("maps", exist_ok=True)
 
     filename = f"maps/{killmail_id}.npz"
-    np.savez(filename, points=points, colors=colors, titles=titles)
     np.savez(filename, points=points, colors=colors, titles=titles)
     print(f"Point cloud exported to {filename}")
 
@@ -996,9 +988,9 @@ toggle_button = None
 
 def display_point_cloud_in_tkinter(killmail_id):
     # Load point cloud data from file
-    points, colors, titles = load_point_cloud_from_file(killmail_id)
+
     if points is None or colors is None or titles is None:
-    points, colors, titles = load_point_cloud_from_file(killmail_id)
+        points, colors, titles = load_point_cloud_from_file(killmail_id)
     if points is None or colors is None or titles is None:
         return  # Return if data loading fails
 
@@ -1008,10 +1000,7 @@ def display_point_cloud_in_tkinter(killmail_id):
     killmail_index = None
     for i, title in enumerate(titles):
         if title == "kill":
-    for i, title in enumerate(titles):
-        if title == "kill":
             killmail_index = i
-            print("killmail index is: " + str(i))
             print("killmail index is: " + str(i))
             break
 
